@@ -1,0 +1,311 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Prevent horizontal scrolling globally */
+html, body {
+  overflow-x: hidden !important;
+  max-width: 100vw;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* Ensure all containers don't cause overflow */
+*, *::before, *::after {
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+/* Prevent any element from causing horizontal scroll */
+#root {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+/* Constrain all containers */
+.container, main, section, article, div {
+  max-width: 100%;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Better text wrapping for typing areas */
+.typing-text-container {
+  word-break: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  white-space: normal;
+  max-width: 100%;
+  width: 100%;
+}
+
+:root {
+  --background: hsl(250, 6%, 98%);
+  --foreground: hsl(240, 10%, 9%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(240, 10%, 9%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(240, 10%, 9%);
+  --primary: hsl(210, 100%, 50%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(240, 10%, 9%);
+  --secondary-foreground: hsl(0, 0%, 100%);
+  --muted: hsl(240, 4.9%, 83.9%);
+  --muted-foreground: hsl(240, 10%, 9%);
+  --accent: hsl(240, 4.9%, 83.9%);
+  --accent-foreground: hsl(240, 10%, 9%);
+  --destructive: hsl(0, 84.2%, 60.2%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --border: hsl(240, 5.9%, 90%);
+  --input: hsl(240, 5.9%, 90%);
+  --ring: hsl(210, 100%, 50%);
+  --chart-1: hsl(210, 100%, 50%);
+  --chart-2: hsl(173, 58%, 39%);
+  --chart-3: hsl(197, 37%, 24%);
+  --chart-4: hsl(43, 74%, 66%);
+  --chart-5: hsl(27, 87%, 67%);
+  --sidebar: hsl(0, 0%, 100%);
+  --sidebar-foreground: hsl(240, 10%, 9%);
+  --sidebar-primary: hsl(210, 100%, 50%);
+  --sidebar-primary-foreground: hsl(0, 0%, 100%);
+  --sidebar-accent: hsl(240, 4.9%, 83.9%);
+  --sidebar-accent-foreground: hsl(240, 10%, 9%);
+  --sidebar-border: hsl(240, 5.9%, 90%);
+  --sidebar-ring: hsl(210, 100%, 50%);
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-serif: ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  --radius: 0.5rem;
+  
+  /* Custom Vercel-inspired colors */
+  --vercel-blue: hsl(210, 100%, 50%);
+  --vercel-gray: hsl(0, 0%, 98%);
+  --border-gray: hsl(240, 5.9%, 90%);
+  --text-secondary: hsl(240, 3.8%, 46.1%);
+}
+
+.dark {
+  --background: hsl(240, 10%, 3.9%);
+  --foreground: hsl(0, 0%, 98%);
+  --card: hsl(240, 10%, 3.9%);
+  --card-foreground: hsl(0, 0%, 98%);
+  --popover: hsl(240, 10%, 3.9%);
+  --popover-foreground: hsl(0, 0%, 98%);
+  --primary: hsl(210, 100%, 50%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(240, 3.7%, 15.9%);
+  --secondary-foreground: hsl(0, 0%, 98%);
+  --muted: hsl(240, 3.7%, 15.9%);
+  --muted-foreground: hsl(240, 5%, 64.9%);
+  --accent: hsl(240, 3.7%, 15.9%);
+  --accent-foreground: hsl(0, 0%, 98%);
+  --destructive: hsl(0, 62.8%, 30.6%);
+  --destructive-foreground: hsl(0, 0%, 98%);
+  --border: hsl(240, 3.7%, 15.9%);
+  --input: hsl(240, 3.7%, 15.9%);
+  --ring: hsl(210, 100%, 50%);
+  --chart-1: hsl(220, 70%, 50%);
+  --chart-2: hsl(160, 60%, 45%);
+  --chart-3: hsl(30, 80%, 55%);
+  --chart-4: hsl(280, 65%, 60%);
+  --chart-5: hsl(340, 75%, 55%);
+  --sidebar: hsl(240, 10%, 3.9%);
+  --sidebar-foreground: hsl(0, 0%, 98%);
+  --sidebar-primary: hsl(210, 100%, 50%);
+  --sidebar-primary-foreground: hsl(0, 0%, 100%);
+  --sidebar-accent: hsl(240, 3.7%, 15.9%);
+  --sidebar-accent-foreground: hsl(0, 0%, 98%);
+  --sidebar-border: hsl(240, 3.7%, 15.9%);
+  --sidebar-ring: hsl(210, 100%, 50%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: var(--font-sans);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+  }
+
+  /* Focus styles for better accessibility */
+  .focus-visible:focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+}
+
+@layer components {
+  /* Custom component styles for typing interface */
+  .typing-cursor {
+    @apply animate-pulse bg-primary;
+  }
+
+  .typing-correct {
+    @apply bg-green-100 text-green-800;
+  }
+
+  .typing-incorrect {
+    @apply bg-red-100 text-red-800 relative;
+  }
+
+  .typing-incorrect::after {
+    content: '';
+    @apply absolute bottom-0 left-0 w-full h-0.5 bg-red-500;
+  }
+
+  /* Chart and progress bar animations */
+  .chart-bar {
+    @apply transition-all duration-300 ease-in-out;
+  }
+
+  .progress-bar {
+    @apply transition-all duration-500 ease-out;
+  }
+
+  /* Hover effects for cards */
+  .card-hover {
+    @apply transition-all duration-200 hover:shadow-md hover:scale-[1.02];
+  }
+
+  /* Badge variants */
+  .badge-success {
+    @apply bg-green-100 text-green-800 border-green-200;
+  }
+
+  .badge-warning {
+    @apply bg-yellow-100 text-yellow-800 border-yellow-200;
+  }
+
+  .badge-error {
+    @apply bg-red-100 text-red-800 border-red-200;
+  }
+
+  .badge-info {
+    @apply bg-blue-100 text-blue-800 border-blue-200;
+  }
+
+  /* Loading animations */
+  .loading-shimmer {
+    @apply animate-pulse bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 bg-[length:200%_100%];
+    animation: shimmer 2s infinite;
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+
+  /* Real-time indicator */
+  .live-indicator {
+    @apply relative;
+  }
+
+  .live-indicator::before {
+    content: '';
+    @apply absolute -inset-1 bg-green-400 rounded-full animate-ping;
+  }
+
+  /* Stats card gradient backgrounds */
+  .stats-gradient-blue {
+    @apply bg-gradient-to-br from-blue-50 to-blue-100;
+  }
+
+  .stats-gradient-green {
+    @apply bg-gradient-to-br from-green-50 to-green-100;
+  }
+
+  .stats-gradient-red {
+    @apply bg-gradient-to-br from-red-50 to-red-100;
+  }
+
+  .stats-gradient-yellow {
+    @apply bg-gradient-to-br from-yellow-50 to-yellow-100;
+  }
+}
+
+@layer utilities {
+  /* Text selection styles */
+  ::selection {
+    @apply bg-blue-100 text-blue-900;
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Typing practice specific utilities */
+  .mono-spaced {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+
+  /* Smooth transitions for dynamic content */
+  .smooth-update {
+    @apply transition-all duration-300 ease-in-out;
+  }
+
+  /* Error highlight animation */
+  .error-flash {
+    animation: errorFlash 0.5s ease-in-out;
+  }
+
+  @keyframes errorFlash {
+    0%, 100% { background-color: transparent; }
+    50% { background-color: hsl(0, 84.2%, 90%); }
+  }
+
+  /* Success highlight animation */
+  .success-flash {
+    animation: successFlash 0.5s ease-in-out;
+  }
+
+  @keyframes successFlash {
+    0%, 100% { background-color: transparent; }
+    50% { background-color: hsl(142.1, 76.2%, 90%); }
+  }
+
+  /* Responsive text sizes */
+  .text-responsive {
+    @apply text-sm md:text-base;
+  }
+
+  /* Glass morphism effect */
+  .glass {
+    @apply backdrop-blur-sm bg-white/80 dark:bg-black/80;
+  }
+}
