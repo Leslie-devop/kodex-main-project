@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "_comment": "Build Trigger 01",
   "buildCommand": "npm run vercel-build",
   "outputDirectory": "dist",
   "rewrites": [
