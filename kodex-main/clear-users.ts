@@ -1,5 +1,5 @@
 import { db } from "./server/db";
-import { users, typingSessions, typingActivities, lessonAssignments, aiSuggestions, errorPatterns, keystrokeAnalytics, lessons } from "@shared/schema";
+import { users, typingSessions, typingActivities, lessonAssignments, aiSuggestions, errorPatterns, keystrokeAnalytics, lessons } from "./shared/schema";
 
 async function clearUsers() {
   console.log("Clearing data to reset Google Auth flow for testing...");

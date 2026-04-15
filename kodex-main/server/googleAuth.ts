@@ -41,7 +41,9 @@ export function setupGoogleAuth(app: Express) {
               password: dummyPassword,
               firstName: profile.name?.givenName || username,
               lastName: profile.name?.familyName || '',
-              role: 'student', // default
+              role: null as any, // force onboarding
+              isVerified: false,
+              hasConsent: false,
             });
             
             return done(null, user, { isNewUser: true } as any);

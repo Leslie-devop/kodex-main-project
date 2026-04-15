@@ -10,21 +10,21 @@ export function useRealTimeStats() {
   const { data: dailyStats, refetch: refetchDailyStats } = useQuery<DailyStats>({
     queryKey: ["/api/analytics/student/daily"],
     retry: false,
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 5000, // Refresh every 5 seconds for high responsiveness
   });
 
   // Fetch student stats
   const { data: studentStats, refetch: refetchStudentStats } = useQuery<StudentStats>({
     queryKey: ["/api/analytics/student/stats"],
     retry: false,
-    refetchInterval: 60000, // Refresh every minute
+    refetchInterval: 10000, // Refresh every 10 seconds
   });
 
   // Fetch weekly progress
   const { data: weeklyProgress, refetch: refetchWeeklyProgress } = useQuery<WeeklyProgress[]>({
     queryKey: ["/api/analytics/student/weekly"],
     retry: false,
-    refetchInterval: 60000, // Refresh every minute
+    refetchInterval: 15000, // Refresh every 15 seconds
   });
 
   // Simulate real-time WPM fluctuation for demo purposes
@@ -33,10 +33,10 @@ export function useRealTimeStats() {
       if (dailyStats?.todayWpm) {
         // Add slight variation to make it feel live
         const baseWpm = dailyStats.todayWpm;
-        const variation = Math.floor(Math.random() * 6) - 3; // +/- 3 WPM
-        setLiveWpm(Math.max(20, Math.min(120, baseWpm + variation)));
+        const variation = (Math.random() * 2) - 1; // +/- 1 WPM for smoother delta
+        setLiveWpm(Number((baseWpm + variation).toFixed(2)));
       }
-    }, 2000);
+    }, 1000); // Pulse every second
 
     return () => clearInterval(interval);
   }, [dailyStats?.todayWpm]);

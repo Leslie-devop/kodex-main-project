@@ -1,68 +1,48 @@
-import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import { useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { BookOpen, Calendar, Clock } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
+import { BookOpen, Calendar, FileText, Play, MessageSquare, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { LessonAssignment } from "@/types";
+import MissionReportDialog from "./MissionReportDialog";
+import { motion } from "framer-motion";
 
-export default function AssignedLessons() {
-  const { toast } = useToast();
+interface AssignedLessonsProps {
+  assignments: LessonAssignment[] | undefined;
+  isLoading: boolean;
+}
 
-  const { data: assignments, isLoading, error } = useQuery<LessonAssignment[]>({
-    queryKey: ["/api/assignments/student"],
-    retry: false,
-  });
-
-  if (error && isUnauthorizedError(error as Error)) {
-    toast({
-      title: "Unauthorized",
-      description: "You are logged out. Logging in again...",
-      variant: "destructive",
-    });
-    setTimeout(() => {
-      window.location.href = "/api/login";
-    }, 500);
-    return null;
-  }
+export default function AssignedLessons({ assignments, isLoading }: AssignedLessonsProps) {
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [, setLocation] = useLocation();
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "completed":
-        return "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+        return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
       case "in_progress":
-        return "bg-blue-500/20 text-blue-400 border border-blue-500/30";
+        return "bg-blue-500/10 text-blue-400 border-blue-500/30";
       case "overdue":
-        return "bg-red-500/20 text-red-400 border border-red-500/30";
+        return "bg-red-500/10 text-red-400 border-red-500/30";
       default:
-        return "bg-amber-500/20 text-amber-400 border border-amber-500/30";
+        return "bg-amber-500/10 text-amber-400 border-amber-500/20";
     }
   };
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case "completed":
-        return "Completed";
-      case "in_progress":
-        return "In Progress";
-      case "overdue":
-        return "Overdue";
-      case "pending":
-        return "Pending";
-      default:
-        return "Not Started";
+      case "completed": return "Completed";
+      case "in_progress": return "In Progress";
+      case "overdue": return "Overdue";
+      case "pending": return "Pending";
+      default: return "Not Started";
     }
   };
 
   const formatDueDate = (dateString: string | null) => {
     if (!dateString) return "No due date";
     const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", { 
-      month: "short", 
-      day: "numeric" 
-    });
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
   const isOverdue = (dueDate: string | null) => {
@@ -72,115 +52,149 @@ export default function AssignedLessons() {
 
   if (isLoading) {
     return (
-      <Card className="bg-white/5 border border-white/10 backdrop-blur-xl rounded-[2.5rem]">
-        <CardHeader>
-          <CardTitle className="text-sm font-black text-gray-400 uppercase tracking-widest">Active Objectives</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="animate-pulse space-y-3">
-                <div className="h-4 bg-white/10 rounded w-3/4"></div>
-                <div className="h-3 bg-white/10 rounded w-1/2"></div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-64 bg-white/5 border border-white/10 rounded-3xl animate-pulse" />
+        ))}
+      </div>
     );
   }
 
   return (
-    <Card className="bg-white/5 border border-white/10 backdrop-blur-xl rounded-[2.5rem] overflow-hidden">
-      <CardHeader className="p-8 pb-4 border-b border-white/5">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-black text-gray-400 uppercase tracking-widest">
-            Pending Protocols
-          </CardTitle>
-          <Badge className="bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-black uppercase tracking-tighter" data-testid="text-active-lessons">
-            {assignments?.filter(a => a.status === "in_progress" || a.status === "pending").length || 0} ACTIVE MISSIONS
-          </Badge>
-        </div>
-      </CardHeader>
-
-      <CardContent className="p-8">
-        <div className="grid grid-cols-1 gap-6">
-          {assignments && assignments.length > 0 ? (
-            assignments.slice(0, 5).map((assignment) => (
-              <div
-                key={assignment.id}
-                className="group relative bg-white/[0.02] border border-white/5 rounded-2xl p-6 hover:bg-white/5 hover:border-blue-500/30 transition-all cursor-pointer overflow-hidden"
-                data-testid={`card-assignment-${assignment.id}`}
-                onClick={() => window.location.href = `/student/lesson/${assignment.lessonId}`}
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h4 className="text-lg font-bold text-white group-hover:text-blue-400 transition-colors uppercase tracking-tight" data-testid={`text-lesson-title-${assignment.id}`}>
-                      {assignment.lesson?.title || "Untitled Lesson"}
-                    </h4>
-                    <p className="text-xs text-gray-500 mt-1 line-clamp-1" data-testid={`text-lesson-description-${assignment.id}`}>
-                      {assignment.lesson?.description || "No description available"}
-                    </p>
-                  </div>
-                  <div className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-tighter ${getStatusColor(assignment.status)}`} data-testid={`badge-status-${assignment.id}`}>
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-8">
+        {assignments && assignments.length > 0 ? (
+          assignments.map((assignment) => (
+            <motion.div
+              key={assignment.id}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              whileHover={{ y: -5 }}
+              className="group relative bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-white/10 rounded-[2rem] p-7 hover:bg-gray-50 dark:hover:bg-white/[0.05] hover:border-blue-500/40 transition-all overflow-hidden backdrop-blur-md shadow-sm dark:shadow-2xl flex flex-col min-h-[300px]"
+            >
+              {/* Cinematic Background Glow on Hover */}
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              
+              <div className="relative z-10 h-full flex flex-col flex-1">
+                <div className="flex items-start justify-between mb-6">
+                  <div className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-[0.1em] border ${getStatusColor(assignment.status)}`}>
                     {getStatusLabel(assignment.status)}
                   </div>
+                  {assignment.lesson?.difficulty && (
+                    <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-gray-500 dark:text-gray-400">
+                      {assignment.lesson.difficulty} PHASE
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="mb-8 flex-grow">
+                  <h4 className="text-2xl font-black text-slate-800 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors uppercase tracking-tighter italic leading-none">
+                    {assignment.lesson?.title || "Untitled Objective"}
+                  </h4>
+                  <p className="text-[11px] text-slate-500 dark:text-gray-500 mt-4 line-clamp-3 font-medium leading-relaxed uppercase tracking-tight">
+                    {assignment.lesson?.description || "Deploying neural interface for mission objective. Full brief available in terminal."}
+                  </p>
                 </div>
                 
-                <div className="space-y-4">
+                <div className="space-y-5 mt-auto pt-6 border-t border-white/5">
                   <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest">
-                    <span className="text-gray-500">Synchronization</span>
-                    <span className="text-blue-400" data-testid={`text-progress-${assignment.id}`}>
+                    <span className="text-gray-500">SYNC PROGRESS</span>
+                    <span className="text-blue-500 dark:text-blue-400 font-mono">
                       {Math.round(Number(assignment.progress || 0))}%
                     </span>
                   </div>
-                  <div className="w-full bg-white/5 rounded-full h-1.5 border border-white/10 overflow-hidden">
-                    <div 
-                      className="bg-gradient-to-r from-blue-600 to-indigo-500 h-full rounded-full transition-all duration-500" 
-                      style={{ width: `${Math.min(100, Number(assignment.progress || 0))}%` }}
-                    ></div>
+                  <div className="w-full bg-gray-100 dark:bg-white/5 rounded-full h-1.5 border border-gray-200 dark:border-white/5 overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(100, Number(assignment.progress || 0))}%` }}
+                      transition={{ duration: 1, ease: "circOut" }}
+                      className="bg-gradient-to-r from-blue-600 via-indigo-500 to-blue-400 h-full rounded-full"
+                    />
                   </div>
                   
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center text-[10px] font-black uppercase tracking-widest text-gray-500">
-                      <Calendar className="h-3 w-3 mr-2 text-blue-500" />
-                      <span 
-                        className={isOverdue(assignment.dueDate) ? "text-red-400" : ""}
-                        data-testid={`text-due-date-${assignment.id}`}
-                      >
-                        DEALINE: {formatDueDate(assignment.dueDate)}
-                      </span>
+                  <div className="flex items-center justify-between pt-2 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center text-[10px] font-black uppercase tracking-widest text-gray-400">
+                        <Calendar className="h-3 w-3 mr-2 text-blue-500" />
+                        <span className={isOverdue(assignment.dueDate) ? "text-red-500" : "text-slate-300"}>
+                           {formatDueDate(assignment.dueDate)}
+                        </span>
+                      </div>
+                      {assignment.maxAttempts > 0 && (
+                        <div className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
+                           LOADS: <span className={(assignment.sessionCount || 0) >= assignment.maxAttempts ? "text-red-500" : "text-blue-400"}>
+                             {assignment.sessionCount || 0}/{assignment.maxAttempts}
+                           </span>
+                        </div>
+                      )}
                     </div>
 
-                    {assignment.lesson?.difficulty && (
-                      <Badge className="bg-white/5 border-white/10 text-gray-500 text-[10px] font-bold uppercase py-0 px-2" data-testid={`badge-difficulty-${assignment.id}`}>
-                        {assignment.lesson.difficulty}
-                      </Badge>
-                    )}
+                    <div className="flex items-center gap-2">
+                       {assignment.feedback && (
+                         <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-500/10 border border-blue-500/30 rounded-lg animate-pulse">
+                           <MessageSquare className="h-3 w-3 text-blue-500" />
+                           <span className="text-[9px] font-black text-blue-500 uppercase tracking-tighter">Critique</span>
+                         </div>
+                       )}
+                       <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-10 w-10 rounded-xl bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 text-gray-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white border border-gray-200 dark:border-white/5 transition-all"
+                        onClick={() => setSelectedReportId(assignment.id)}
+                      >
+                        <FileText className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        disabled={
+                          (assignment.maxAttempts > 0 && (assignment.sessionCount || 0) >= assignment.maxAttempts) ||
+                          (isOverdue(assignment.dueDate) && assignment.status !== "completed")
+                        }
+                        className={`h-10 rounded-xl px-4 text-[10px] font-black uppercase tracking-widest gap-2 transition-all shadow-lg active:scale-95 ${
+                          (assignment.maxAttempts > 0 && (assignment.sessionCount || 0) >= assignment.maxAttempts) ||
+                          (isOverdue(assignment.dueDate) && assignment.status !== "completed")
+                            ? "bg-red-500/10 text-red-500 border border-red-500/20 cursor-not-allowed opacity-50"
+                            : "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/20"
+                        }`}
+                        onClick={() => setLocation(`/student/lesson/${assignment.lessonId}/${assignment.id}`)}
+                      >
+                        {assignment.status === "completed" ? (
+                          <>
+                             <CheckCircle2 className="h-3.5 w-3.5" />
+                             REVIEW
+                          </>
+                        ) : (assignment.maxAttempts > 0 && (assignment.sessionCount || 0) >= assignment.maxAttempts) ? (
+                          <>LOCKED (LIMIT)</>
+                        ) : isOverdue(assignment.dueDate) ? (
+                          <>LOCKED (PAST DUE)</>
+                        ) : (
+                          <>
+                            <Play className="h-3.5 w-3.5 fill-current" />
+                            ENGAGE
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
-            ))
-          ) : (
-            <div className="text-center py-12 bg-white/[0.02] border border-dashed border-white/10 rounded-3xl">
-              <BookOpen className="h-16 w-16 mx-auto mb-4 text-gray-700" />
-              <p className="font-bold text-white uppercase tracking-widest text-sm" data-testid="text-no-assignments">Clear Roster</p>
-              <p className="text-xs text-gray-500 mt-2">No pending objectives assigned by high command.</p>
-            </div>
-          )}
-        </div>
-
-        {assignments && assignments.length > 5 && (
-          <Button 
-            variant="ghost" 
-            className="w-full mt-6 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-white hover:bg-white/5 rounded-xl h-12"
-            data-testid="button-view-all-lessons"
-            onClick={() => window.location.href = "/student/lessons"}
-          >
-            Access Full Database ({assignments.length} Missions)
-          </Button>
+            </motion.div>
+          ))
+        ) : (
+          <div className="col-span-full text-center py-24 bg-white dark:bg-white/[0.02] border border-dashed border-gray-200 dark:border-white/5 rounded-[4rem] backdrop-blur-xl">
+             <div className="h-20 w-20 bg-gray-50 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto mb-8 border border-gray-200 dark:border-white/10">
+                <BookOpen className="h-8 w-8 text-gray-400 dark:text-gray-700" />
+             </div>
+            <p className="font-black text-slate-800 dark:text-white uppercase tracking-[0.4em] text-xl italic mb-3">Communication Clear</p>
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">No tactical objectives active in your current sector.</p>
+          </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+
+      <MissionReportDialog 
+        assignmentId={selectedReportId} 
+        onClose={() => setSelectedReportId(null)} 
+      />
+    </>
   );
 }

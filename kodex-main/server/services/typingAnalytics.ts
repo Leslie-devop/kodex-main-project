@@ -216,35 +216,54 @@ export class TypingAnalyticsService {
     todayWpm: number;
     todayAccuracy: number;
     sessionsToday: number;
-    timeToday: number;
+    improvementToday: number;
   }> {
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const allSessions = await storage.getSessionsForStudent(studentId);
+      const now = new Date();
       
-      const sessions = await storage.getSessionsForStudent(studentId);
-      const todaySessions = sessions.filter(s => 
-        s.completedAt && new Date(s.completedAt) >= today && s.completed
+      // Today range
+      const todayStart = new Date(now);
+      todayStart.setHours(0, 0, 0, 0);
+      
+      // Yesterday range
+      const yesterdayStart = new Date(todayStart);
+      yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+      const yesterdayEnd = new Date(todayStart);
+
+      const todaySessions = allSessions.filter(s => 
+        s.completedAt && new Date(s.completedAt) >= todayStart && s.completed && (s.timeSpent || 0) > 0
       );
 
-      if (todaySessions.length === 0) {
-        return {
-          todayWpm: 0,
-          todayAccuracy: 0,
-          sessionsToday: 0,
-          timeToday: 0,
-        };
-      }
+      const yesterdaySessions = allSessions.filter(s => 
+        s.completedAt && 
+        new Date(s.completedAt) >= yesterdayStart && 
+        new Date(s.completedAt) < yesterdayEnd && 
+        s.completed &&
+        (s.timeSpent || 0) > 0
+      );
 
-      const avgWpm = todaySessions.reduce((sum, s) => sum + Number(s.wpm || 0), 0) / todaySessions.length;
-      const avgAccuracy = todaySessions.reduce((sum, s) => sum + Number(s.accuracy || 0), 0) / todaySessions.length;
-      const totalTime = todaySessions.reduce((sum, s) => sum + Number(s.timeSpent || 0), 0);
+      const todayBestWpm = todaySessions.length > 0 
+        ? Math.max(...todaySessions.map(s => Number(s.wpm || 0))) 
+        : 0;
+
+      const todayBestAccuracy = todaySessions.length > 0 
+        ? Math.max(...todaySessions.map(s => Number(s.accuracy || 0))) 
+        : 0;
+
+      const yesterdayBestWpm = yesterdaySessions.length > 0 
+        ? Math.max(...yesterdaySessions.map(s => Number(s.wpm || 0))) 
+        : 0;
+
+      const improvement = todayBestWpm > 0 && yesterdayBestWpm > 0 
+        ? todayBestWpm - yesterdayBestWpm 
+        : 0;
 
       return {
-        todayWpm: Math.round(avgWpm),
-        todayAccuracy: Math.round(avgAccuracy),
+        todayWpm: Math.round(todayBestWpm),
+        todayAccuracy: Math.round(todayBestAccuracy),
         sessionsToday: todaySessions.length,
-        timeToday: Math.round(totalTime / 60), // Convert to minutes
+        improvementToday: Math.round(improvement),
       };
 
     } catch (error) {
@@ -253,7 +272,7 @@ export class TypingAnalyticsService {
         todayWpm: 0,
         todayAccuracy: 0,
         sessionsToday: 0,
-        timeToday: 0,
+        improvementToday: 0,
       };
     }
   }

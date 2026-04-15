@@ -9,29 +9,15 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { 
-  BookOpen, 
-  ArrowLeft, 
-  Settings2, 
-  Trophy, 
-  Clock, 
-  CheckCircle2,
-  AlertCircle,
+  ArrowLeft,
+  BookOpen,
   Loader2,
-  Sparkles
+  Clock
 } from "lucide-react";
-import { motion } from "framer-motion";
-
-interface CreateLessonData {
-  title: string;
-  description: string;
-  content: string;
-  difficulty: string;
-  estimatedTime: number;
-  maxAttempts: number;
-  timeLimit: number;
-}
+import { motion, AnimatePresence } from "framer-motion";
+import { Badge } from "@/components/ui/badge";
 
 export default function LessonCreate() {
   const { user, isAuthenticated } = useAuth();
@@ -39,254 +25,294 @@ export default function LessonCreate() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [formData, setFormData] = useState<CreateLessonData>({
+  const searchParams = new URLSearchParams(window.location.search);
+  const queryClassroomId = searchParams.get('classroom') || "";
+
+  const [details, setDetails] = useState({
     title: "",
     description: "",
-    content: "",
     difficulty: "beginner",
-    estimatedTime: 10,
-    maxAttempts: 0,
-    timeLimit: 0,
+    timeLimit: 120, // 2 minutes
+    content: "",
+    maxAttempts: "unlimited",
+    allowBackspace: true,
+    classroomId: queryClassroomId
   });
 
-  const createLessonMutation = useMutation({
-    mutationFn: async (lessonData: CreateLessonData) => {
-      const response = await fetch("/api/lessons", {
+  const { data: classrooms } = useQuery<any[]>({
+    queryKey: ["/api/classrooms"],
+    enabled: isAuthenticated && user?.role === "teacher"
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (payload: any) => {
+      const res = await fetch("/api/lessons", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(lessonData),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: payload.title,
+          description: payload.description,
+          difficulty: payload.difficulty,
+          estimatedTime: Math.round(payload.timeLimit / 60) || 1,
+          timeLimit: payload.timeLimit,
+          content: payload.content,
+          maxAttempts: payload.maxAttempts === "unlimited" ? 0 : parseInt(payload.maxAttempts),
+          allowBackspace: !payload.allowBackspace, // Restriction ACTIVE means allowBackspace is FALSE
+          isStandalone: false,
+          classroomId: payload.classroomId && payload.classroomId !== "none" ? payload.classroomId : null
+        }),
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to create lesson");
-      }
-
-      return response.json();
+      if (!res.ok) throw new Error("Failed to initialize lesson");
+      return await res.json();
     },
     onSuccess: () => {
-      toast({
-        title: "Lesson Deployed",
-        description: "Your typing lesson is now available in the library.",
-      });
+      toast({ title: "Lesson Initialized", description: "The curriculum has been expanded successfully." });
       queryClient.invalidateQueries({ queryKey: ["/api/lessons"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/teacher/dashboard-stats"] });
       navigate("/teacher/lessons");
     },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
+    onError: (err: any) => {
+        toast({ title: "Initialization Failed", description: err.message, variant: "destructive" });
+    }
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!formData.title || !formData.content) {
-      toast({
-        title: "Missing Information",
-        description: "Title and lesson content are mandatory.",
-        variant: "destructive",
-      });
-      return;
+    if (!details.title || !details.content) {
+        toast({ title: "Missing Fields", description: "Title and content are strictly required.", variant: "destructive" });
+        return;
     }
-
-    createLessonMutation.mutate(formData);
-  };
-
-  const handleInputChange = (field: keyof CreateLessonData, value: string | number) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value,
-    }));
+    createMutation.mutate(details);
   };
 
   if (!isAuthenticated || user?.role !== "teacher") return null;
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-white selection:bg-blue-500/30">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0f172a] text-slate-900 dark:text-white selection:bg-blue-500/20 transition-colors">
       <Header />
       
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-10"
-        >
-          <Button 
-            variant="ghost" 
-            onClick={() => navigate("/teacher/lessons")}
-            className="mb-6 text-gray-400 hover:text-white rounded-xl"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Library
-          </Button>
-          
-          <h2 className="text-4xl font-extrabold tracking-tight mb-2 flex items-center">
-            <Sparkles className="mr-4 h-8 w-8 text-amber-400" />
-            Craft New Lesson
-          </h2>
-          <p className="text-gray-400">Design high-fidelity typing challenges with custom constraints.</p>
-        </motion.div>
-
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
-            <Card className="bg-white/5 border-white/10 backdrop-blur-xl rounded-[2rem] overflow-hidden">
-              <CardHeader className="border-b border-white/5 bg-white/[0.02] p-8">
-                <CardTitle className="flex items-center">
-                  <BookOpen className="mr-3 h-5 w-5 text-blue-500" />
-                  Core Content
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-8 space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="title" className="text-gray-400 uppercase tracking-widest text-[10px] font-bold">Lesson Title</Label>
-                  <Input
-                    id="title"
-                    value={formData.title}
-                    onChange={(e) => handleInputChange("title", e.target.value)}
-                    placeholder="Enter lesson title..."
-                    className="bg-white/5 border-white/10 rounded-2xl h-14 text-lg focus:ring-blue-500"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="description" className="text-gray-400 uppercase tracking-widest text-[10px] font-bold">Objectives / Description</Label>
-                  <Textarea
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) => handleInputChange("description", e.target.value)}
-                    placeholder="What will students learn from this lesson?"
-                    rows={3}
-                    className="bg-white/5 border-white/10 rounded-2xl p-4 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="content" className="text-gray-400 uppercase tracking-widest text-[10px] font-bold">Lesson Content (Typing Text)</Label>
-                    <span className="text-[10px] text-gray-500 font-bold">{formData.content.length} characters</span>
-                  </div>
-                  <Textarea
-                    id="content"
-                    value={formData.content}
-                    onChange={(e) => handleInputChange("content", e.target.value)}
-                    placeholder="Enter the practice text here..."
-                    rows={12}
-                    className="bg-white/5 border-white/10 rounded-2xl p-6 font-mono text-blue-100 focus:ring-blue-500 leading-relaxed"
-                    required
-                  />
-                  <div className="flex items-center p-4 bg-blue-500/10 rounded-2xl border border-blue-500/20 text-blue-300 text-xs">
-                    <AlertCircle className="h-4 w-4 mr-2 shrink-0" />
-                    Students will be required to type this text exactly as shown. Double check for typos!
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+      <main className="max-w-[1400px] mx-auto px-6 py-12 flex flex-col xl:flex-row gap-10">
+        <div className="flex-1 space-y-10">
+          <div>
+            <h2 className="text-4xl font-black tracking-tight text-slate-900 dark:text-white mb-2">Initialize New Lesson</h2>
+            <p className="text-slate-500 dark:text-gray-400 font-semibold text-base">Construct a new typing curriculum protocol for your library.</p>
           </div>
 
-          <div className="space-y-8">
-            <Card className="bg-white/5 border-white/10 backdrop-blur-xl rounded-[2rem] overflow-hidden">
-              <CardHeader className="border-b border-white/5 bg-white/[0.02] p-8">
-                <CardTitle className="flex items-center">
-                  <Settings2 className="mr-3 h-5 w-5 text-purple-500" />
-                  Configuration
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-8 space-y-6">
-                <div className="space-y-2">
-                  <Label className="text-gray-400 uppercase tracking-widest text-[10px] font-bold">Difficulty Profile</Label>
-                  <Select
-                    value={formData.difficulty}
-                    onValueChange={(value) => handleInputChange("difficulty", value)}
-                  >
-                    <SelectTrigger className="bg-white/5 border-white/10 h-12 rounded-xl">
-                      <SelectValue placeholder="Select level" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#1e293b] border-white/10 text-white rounded-xl">
-                      <SelectItem value="beginner">Beginner</SelectItem>
-                      <SelectItem value="intermediate">Intermediate</SelectItem>
-                      <SelectItem value="advanced">Advanced</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+          <Card className="border-gray-200 dark:border-white/10 shadow-sm dark:shadow-none rounded-[2rem] overflow-hidden bg-white dark:bg-white/5">
+             <CardHeader className="p-8 border-b border-gray-100 dark:border-white/5">
+                 <CardTitle className="text-xl font-black flex items-center gap-3 text-slate-900 dark:text-white">
+                     <BookOpen className="w-6 h-6 text-blue-600" />
+                     Lesson Architect Details
+                 </CardTitle>
+             </CardHeader>
+             <CardContent className="p-8 space-y-8">
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <Label className="font-black text-xs uppercase tracking-widest text-slate-500 dark:text-gray-400">Classroom (Optional)</Label>
+                        <Select 
+                          value={details.classroomId || "none"} 
+                          onValueChange={(val) => setDetails({...details, classroomId: val === "none" ? "" : val})}
+                        >
+                            <SelectTrigger className="h-14 bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10 rounded-2xl px-6 focus:ring-blue-500/20 font-bold">
+                                <SelectValue placeholder="Global Lesson (All Students)" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white dark:bg-[#1e293b] border-gray-200 dark:border-white/10">
+                                <SelectItem value="none" className="font-bold">Global Lesson (All Students)</SelectItem>
+                                {classrooms?.map((c: any) => (
+                                    <SelectItem key={c.id} value={c.id} className="font-bold">{c.name} - {c.section}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">
+                          Room-specific lessons will only be visible to students in that room.
+                        </p>
+                    </div>
 
-                <div className="space-y-2">
-                  <Label className="text-gray-400 uppercase tracking-widest text-[10px] font-bold flex items-center">
-                    <Clock className="h-3 w-3 mr-1" /> Estimated Time (Min)
-                  </Label>
-                  <Input
-                    type="number"
-                    value={formData.estimatedTime}
-                    onChange={(e) => handleInputChange("estimatedTime", parseInt(e.target.value) || 0)}
-                    className="bg-white/5 border-white/10 h-12 rounded-xl"
-                    min="1"
-                  />
-                </div>
+                    <div className="space-y-2">
+                        <Label className="font-black text-xs uppercase tracking-widest text-slate-500 dark:text-gray-400">Title *</Label>
+                        <Input 
+                          value={details.title}
+                          onChange={(e) => setDetails({...details, title: e.target.value})}
+                          placeholder="Lesson Title" 
+                          className="h-14 bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10 rounded-2xl px-6 focus:ring-blue-500/20 font-bold text-slate-900 dark:text-white" 
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label className="font-black text-xs uppercase tracking-widest text-slate-500 dark:text-gray-400">Description</Label>
+                        <Textarea 
+                          value={details.description}
+                          onChange={(e) => setDetails({...details, description: e.target.value})}
+                          placeholder="Lesson Description" 
+                          className="bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10 rounded-2xl px-6 py-4 focus:ring-blue-500/20 font-bold min-h-[100px] text-slate-900 dark:text-white" 
+                        />
+                    </div>
 
-                <div className="space-y-2">
-                  <Label className="text-gray-400 uppercase tracking-widest text-[10px] font-bold flex items-center">
-                    <AlertCircle className="h-3 w-3 mr-1" /> Typing Time Limit (Sec)
-                  </Label>
-                  <Input
-                    type="number"
-                    value={formData.timeLimit}
-                    onChange={(e) => handleInputChange("timeLimit", parseInt(e.target.value) || 0)}
-                    placeholder="0 for unlimited"
-                    className="bg-white/5 border-white/10 h-12 rounded-xl"
-                    min="0"
-                  />
-                  <p className="text-[10px] text-gray-500 italic">Forces lesson termination after time expires.</p>
-                </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="space-y-2">
+                            <Label className="font-black text-xs uppercase tracking-widest text-slate-500 dark:text-gray-400">Difficulty</Label>
+                            <Select value={details.difficulty} onValueChange={(val) => setDetails({...details, difficulty: val})}>
+                                <SelectTrigger className="h-14 bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10 rounded-2xl px-6 font-bold text-slate-900 dark:text-white">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-2xl dark:bg-[#1e1b21] dark:border-white/10">
+                                    <SelectItem value="beginner" className="font-bold text-slate-900 dark:text-gray-300">Beginner</SelectItem>
+                                    <SelectItem value="intermediate" className="font-bold text-slate-900 dark:text-gray-300">Intermediate</SelectItem>
+                                    <SelectItem value="advanced" className="font-bold text-slate-900 dark:text-gray-300">Advanced</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-3">
+                            <Label className="font-black text-xs uppercase tracking-widest text-slate-500 dark:text-gray-400">Typing Time Limit</Label>
+                            <div className="flex gap-2 flex-wrap">
+                                {[1, 2, 5, 10, 15, 20].map(m => (
+                                    <Button 
+                                      key={m} 
+                                      variant={details.timeLimit === m * 60 ? "default" : "outline"} 
+                                      onClick={() => setDetails({...details, timeLimit: m * 60})}
+                                      className={`h-12 w-12 rounded-xl text-sm font-black transition-all ${details.timeLimit === m * 60 ? 'bg-blue-600 shadow-lg shadow-blue-600/30 border-blue-600 text-white' : 'bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 text-slate-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/10'}`}
+                                    >
+                                      {m}m
+                                    </Button>
+                                ))}
+                                <div className="flex-1 min-w-[120px] flex gap-2">
+                                    <Input 
+                                      type="number" 
+                                      placeholder="Custom" 
+                                      className="h-12 bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10 rounded-xl font-bold text-slate-900 dark:text-white" 
+                                      value={details.timeLimit ? details.timeLimit / 60 : ''}
+                                      onChange={(e) => setDetails({...details, timeLimit: parseInt(e.target.value) * 60 || 0})}
+                                    />
+                                    <Select defaultValue="minutes">
+                                        <SelectTrigger className="h-12 bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10 rounded-xl font-bold w-28 text-slate-900 dark:text-white">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent className="dark:bg-[#1e1b21] dark:border-white/10">
+                                            <SelectItem value="minutes" className="text-slate-900 dark:text-gray-300">Minutes</SelectItem>
+                                            <SelectItem value="seconds" className="text-slate-900 dark:text-gray-300">Seconds</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 rounded-xl border border-blue-100 dark:border-blue-500/20">
+                               <Clock className="w-4 h-4" />
+                               <span className="text-xs font-black uppercase tracking-tighter">{details.timeLimit / 60} Minutes</span>
+                               <span className="text-[10px] font-bold opacity-80 flex-1">This sets the typing timer for the session.</span>
+                            </div>
+                        </div>
+                    </div>
 
-                <div className="space-y-2">
-                  <Label className="text-gray-400 uppercase tracking-widest text-[10px] font-bold flex items-center">
-                    <Trophy className="h-3 w-3 mr-1" /> Max Attempts
-                  </Label>
-                  <Input
-                    type="number"
-                    value={formData.maxAttempts}
-                    onChange={(e) => handleInputChange("maxAttempts", parseInt(e.target.value) || 0)}
-                    placeholder="0 for unlimited"
-                    className="bg-white/5 border-white/10 h-12 rounded-xl"
-                    min="0"
-                  />
-                  <p className="text-[10px] text-gray-500 italic">Limits how many times a student can try.</p>
-                </div>
-              </CardContent>
-            </Card>
+                    <div className="space-y-3">
+                        <Label className="font-black text-xs uppercase tracking-widest text-slate-500 dark:text-gray-400">Maximum Attempts</Label>
+                        <Select value={details.maxAttempts} onValueChange={(val) => setDetails({...details, maxAttempts: val})}>
+                            <SelectTrigger className="h-14 bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10 rounded-2xl px-6 font-bold max-w-md text-slate-900 dark:text-white">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-2xl dark:bg-[#1e1b21] dark:border-white/10">
+                                <SelectItem value="unlimited" className="font-bold text-slate-900 dark:text-gray-300">Unlimited</SelectItem>
+                                {[1, 2, 3, 4, 5, 10].map(n => (
+                                    <SelectItem key={n} value={n.toString()} className="font-bold text-slate-900 dark:text-gray-300">{n} {n === 1 ? 'attempt' : 'attempts'}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <p className="text-[10px] text-slate-400 dark:text-gray-500 font-bold italic">0 = unlimited attempts, 1+ = maximum attempts upon deployment</p>
+                    </div>
 
-            <div className="flex flex-col gap-4">
-              <Button
-                type="submit"
-                className="w-full h-16 rounded-[2rem] bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black uppercase tracking-widest shadow-xl shadow-blue-500/20 group"
-                disabled={createLessonMutation.isPending}
-              >
-                {createLessonMutation.isPending ? (
-                  <Loader2 className="animate-spin h-6 w-6" />
-                ) : (
-                  <>
-                    Deploy Lesson
-                    <CheckCircle2 className="ml-2 h-5 w-5 group-hover:scale-125 transition-transform" />
-                  </>
-                )}
-              </Button>
-              
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => navigate("/teacher/lessons")}
-                className="w-full h-14 rounded-2xl text-gray-500 hover:text-white hover:bg-white/5 font-bold"
-              >
-                Cancel
-              </Button>
-            </div>
+                    <div className="space-y-3">
+                        <Label className="font-black text-xs uppercase tracking-widest text-slate-500 dark:text-gray-400">Backspace Restriction</Label>
+                        <div className="flex items-center gap-3 bg-gray-50 dark:bg-white/5 p-3 h-14 rounded-2xl border border-gray-100 dark:border-white/5 max-w-md">
+                            <Button
+                                variant={details.allowBackspace ? "default" : "outline"}
+                                onClick={(e) => { e.preventDefault(); setDetails({ ...details, allowBackspace: !details.allowBackspace })}}
+                                className={`flex-1 h-full rounded-xl transition-all font-black uppercase text-[10px] tracking-widest ${details.allowBackspace ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20" : "bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 text-gray-400 dark:text-gray-500"}`}
+                            >
+                                {details.allowBackspace ? "RESTRICTION: ACTIVE" : "RESTRICTION: OFF"}
+                            </Button>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label className="font-black text-xs uppercase tracking-widest text-slate-500 dark:text-gray-400">Content * (Sans-Serif Font)</Label>
+                        <Textarea 
+                          value={details.content}
+                          onChange={(e) => setDetails({...details, content: e.target.value})}
+                          placeholder="Enter the typing exercise text..." 
+                          className="bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10 rounded-3xl px-8 py-8 focus:ring-blue-500/20 font-medium min-h-[160px] text-lg leading-relaxed font-sans text-slate-900 dark:text-white" 
+                        />
+                    </div>
+                </div>
+             </CardContent>
+          </Card>
+
+          <AnimatePresence>
+            {createMutation.isPending && (
+                <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="flex justify-center py-6"
+                >
+                    <div className="flex items-center gap-4 bg-white dark:bg-white/5 p-6 rounded-3xl shadow-2xl dark:shadow-none border border-gray-100 dark:border-white/5">
+                        <Loader2 className="animate-spin h-8 w-8 text-blue-600 dark:text-blue-500" />
+                        <div className="flex flex-col">
+                            <span className="font-black text-lg text-slate-900 dark:text-white">Initializing Curriculum...</span>
+                            <span className="text-xs font-bold text-slate-400 dark:text-gray-500 uppercase tracking-widest">Building payload sequence</span>
+                        </div>
+                    </div>
+                </motion.div>
+            )}
+          </AnimatePresence>
+
+          <div className="flex justify-end gap-6 pb-20 xl:hidden">
+              <Button 
+                size="lg"
+                className="h-16 px-12 font-black text-lg bg-blue-600 hover:bg-blue-700 rounded-2xl shadow-xl shadow-blue-600/20 active:scale-95 transition-all text-white disabled:opacity-50" 
+                onClick={handleSubmit}
+                disabled={createMutation.isPending || !details.title || !details.content}
+             >
+                Initialize Lesson
+             </Button>
           </div>
-        </form>
+        </div>
+
+        {/* Sidebar */}
+        <div className="w-[360px] space-y-8 hidden xl:block">
+           <Card className="border-gray-200 dark:border-white/10 shadow-xl dark:shadow-none rounded-[2.5rem] bg-white dark:bg-white/5 sticky top-12 overflow-hidden border-2">
+             <CardHeader className="bg-gray-50 dark:bg-black/20 border-b border-gray-100 dark:border-white/5 p-8">
+                <CardTitle className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">Lesson Architect Preview</CardTitle>
+             </CardHeader>
+             <CardContent className="p-0">
+                <div className="p-8 space-y-8">
+                    <div>
+                        <h3 className="text-2xl font-black mb-3 text-slate-900 dark:text-white">
+                            {details.title || 'Lesson Title'}
+                        </h3>
+                        <div className="flex flex-wrap gap-2">
+                            <Badge className="bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20 font-bold text-[10px] uppercase">{details.difficulty}</Badge>
+                            <Badge variant="outline" className="border-gray-200 dark:border-white/10 text-slate-500 dark:text-gray-400 font-bold text-[10px] uppercase">
+                                {Math.round(details.timeLimit / 60)} MIN
+                            </Badge>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-slate-400 dark:text-gray-500 font-bold uppercase tracking-widest text-[10px]">Max Attempts</span>
+                            <span className="font-black uppercase text-slate-700 dark:text-gray-300">{details.maxAttempts}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-blue-600 p-8 text-white">
+                    <Button 
+                        className="w-full h-14 bg-white text-blue-600 hover:bg-blue-50 font-black rounded-2xl text-base shadow-xl active:scale-95 transition-all shadow-white/10"
+                        onClick={handleSubmit}
+                        disabled={createMutation.isPending || !details.title || !details.content}
+                    >
+                        Initialize Lesson
+                    </Button>
+                </div>
+             </CardContent>
+           </Card>
+        </div>
       </main>
     </div>
   );

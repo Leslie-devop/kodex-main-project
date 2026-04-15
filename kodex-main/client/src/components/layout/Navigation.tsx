@@ -27,6 +27,7 @@ export default function Navigation() {
         return [
           ...commonItems,
           { path: "/student/lessons", label: "Lessons", testId: "nav-lessons" },
+          { path: "/student/assignments", label: "Assignments", testId: "nav-assignments" },
           { path: "/student/progress", label: "Progress", testId: "nav-progress" },
           { path: "/student/analytics", label: "Analytics", testId: "nav-analytics" },
         ];
@@ -41,8 +42,8 @@ export default function Navigation() {
         <Link key={item.path} href={item.path}>
           <span
             className={cn(
-              "text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300 cursor-pointer py-2 border-b-2 border-transparent hover:text-blue-400",
-              location === item.path ? "text-blue-400 border-blue-500/50 shadow-[0_4px_12px_-4px_rgba(59,130,246,0.3)]" : "text-gray-500"
+              "text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300 cursor-pointer py-2 border-b-2 border-transparent hover:text-blue-600 dark:hover:text-blue-400",
+              location === item.path ? "text-blue-600 dark:text-blue-400 border-blue-500/50 shadow-[0_4px_12px_-4px_rgba(59,130,246,0.3)]" : "text-slate-500 dark:text-gray-500"
             )}
             data-testid={item.testId}
           >

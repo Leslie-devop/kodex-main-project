@@ -7,8 +7,12 @@ import type { TypingSessionData, KeystrokeEvent, SessionRequirements } from "@/t
 
 interface UseTypingSessionOptions {
   text?: string;
+  lessonId?: string;
+  assignmentId?: string;
   requirements?: SessionRequirements;
   onComplete?: (sessionData: TypingSessionData) => void;
+  onStart?: () => void;
+  allowBackspace?: boolean;
 }
 
 export function useTypingSession(options: UseTypingSessionOptions = {}) {
@@ -22,10 +26,12 @@ export function useTypingSession(options: UseTypingSessionOptions = {}) {
     timeSpent: 0,
     timeRemaining: 0,
     isActive: false,
-    text: options.text || "The quick brown fox jumps over the lazy dog. This sentence contains every letter of the alphabet and is commonly used for typing practice. It helps improve both speed and accuracy when learning to type.",
+    text: options.text || "",
     currentPosition: 0,
     keystrokeData: [],
   });
+
+  const [hasStarted, setHasStarted] = useState(false);
 
   const [inputValue, setInputValue] = useState("");
   const [typedText, setTypedText] = useState("");
@@ -33,8 +39,27 @@ export function useTypingSession(options: UseTypingSessionOptions = {}) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const keystrokeBuffer = useRef<KeystrokeEvent[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const sessionDataRef = useRef<TypingSessionData>(sessionData);
+  const finalDataRef = useRef<TypingSessionData | null>(null);
 
-  // Fetch current session
+  // Keep ref in sync
+  useEffect(() => {
+    sessionDataRef.current = sessionData;
+  }, [sessionData]);
+
+  // Sync text when options.text changes
+  useEffect(() => {
+    if (options.text && !hasStarted) {
+      setSessionData(prev => ({ ...prev, text: options.text || "" }));
+    }
+  }, [options.text, hasStarted]);
+
+  // Sync initial time limit
+  useEffect(() => {
+    if (options.requirements?.timeLimit && !hasStarted) {
+      setSessionData(prev => ({ ...prev, timeRemaining: options.requirements!.timeLimit! }));
+    }
+  }, [options.requirements?.timeLimit, hasStarted]);
   const { data: currentSession } = useQuery({
     queryKey: ["/api/sessions/current"],
     retry: false,
@@ -50,7 +75,8 @@ export function useTypingSession(options: UseTypingSessionOptions = {}) {
       setSessionId(data.id);
       queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      console.error("Failed to create typing session:", error);
       if (isUnauthorizedError(error as Error)) {
         toast({
           title: "Unauthorized",
@@ -62,11 +88,27 @@ export function useTypingSession(options: UseTypingSessionOptions = {}) {
         }, 500);
         return;
       }
-      toast({
-        title: "Error",
-        description: "Failed to create typing session",
-        variant: "destructive",
-      });
+      
+      const errorMessage = error.message || "";
+      if (errorMessage.includes("Maximum attempt") || errorMessage.includes("limit reached")) {
+        setSessionData(prev => ({ 
+          ...prev, 
+          isActive: false,
+          error: "Maximum attempts reached for this mission. Please consult your instructor for recalibration."
+        }));
+        
+        toast({
+          title: "Deployment Halted",
+          description: "Maximum attempts reached for this mission.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Neural Link Failure",
+          description: "Failed to establish typing session. Please retry.",
+          variant: "destructive",
+        });
+      }
     },
   });
 
@@ -126,15 +168,29 @@ export function useTypingSession(options: UseTypingSessionOptions = {}) {
   }, []);
 
   const startSession = useCallback(() => {
+    // Prevent starting with empty text
+    if (!sessionDataRef.current.text || sessionDataRef.current.text.trim() === "") {
+      return;
+    }
+
+    // Prevent double starting
+    if (sessionDataRef.current.isActive) {
+      return;
+    }
+
     // Reset everything first
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
     
+    // Immediately set ref to prevent concurrent calls from rapid typing
+    sessionDataRef.current = { ...sessionDataRef.current, isActive: true };
+    
     const now = Date.now();
     setStartTime(now);
     setInputValue("");
+    setHasStarted(true);
     keystrokeBuffer.current = [];
     
     setSessionData(prev => ({ 
@@ -151,6 +207,8 @@ export function useTypingSession(options: UseTypingSessionOptions = {}) {
     // Create session in backend
     createSessionMutation.mutate({
       activityId: null,
+      lessonId: options.lessonId,
+      assignmentId: options.assignmentId,
       text: sessionData.text,
       timeLimit: options.requirements?.timeLimit || null,
       minAccuracy: options.requirements?.minAccuracy ? options.requirements.minAccuracy.toString() : "85.00",
@@ -174,71 +232,123 @@ export function useTypingSession(options: UseTypingSessionOptions = {}) {
         };
       });
     }, 1000);
-  }, [sessionData.text, options.requirements, createSessionMutation]);
+    options.onStart?.();
+  }, [sessionData.text, options.requirements, createSessionMutation, options.onStart]);
 
-  const endSession = useCallback(() => {
+  const [isPendingSubmission, setIsPendingSubmission] = useState(false);
+
+  const performSubmission = useCallback((id: string, currentSessionData?: TypingSessionData) => {
+    const dataToUse = currentSessionData || finalDataRef.current || sessionDataRef.current;
+    
+    const finalData = {
+      ...dataToUse,
+      isActive: false,
+      completed: true,
+      passed: options.requirements ? 
+        dataToUse.accuracy >= options.requirements.minAccuracy &&
+        dataToUse.currentWpm >= options.requirements.minWpm : true,
+    };
+
+    // Update session in backend
+    updateSessionMutation.mutate({
+      id,
+      data: {
+        text: dataToUse.text,
+        wpm: finalData.currentWpm,
+        accuracy: finalData.accuracy,
+        errors: finalData.errors,
+        timeSpent: finalData.timeSpent,
+        completed: true,
+        passed: finalData.passed,
+        keystrokeData: keystrokeBuffer.current,
+        completedAt: new Date().toISOString(),
+      },
+    });
+    
+    // Refresh stats after session completion
+    queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
+
+    // Submit analytics
+    submitAnalyticsMutation.mutate({
+      sessionId: id,
+      keystrokeData: keystrokeBuffer.current,
+      finalMetrics: {
+        wpm: finalData.currentWpm,
+        accuracy: finalData.accuracy,
+        errors: finalData.errors,
+        timeSpent: finalData.timeSpent,
+        keystrokeCount: keystrokeBuffer.current.length,
+      },
+    });
+
+    options.onComplete?.(finalData);
+  }, [options, updateSessionMutation, submitAnalyticsMutation, queryClient]);
+
+  const endSession = useCallback((forceData?: TypingSessionData) => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
 
-    setSessionData(prev => ({ ...prev, isActive: false }));
+    const dataToUse = forceData || sessionDataRef.current;
+    finalDataRef.current = dataToUse;
     
-    const finalData = {
-      ...sessionData,
-      isActive: false,
-      completed: true,
-      passed: options.requirements ? 
-        sessionData.accuracy >= options.requirements.minAccuracy &&
-        sessionData.currentWpm >= options.requirements.minWpm : true,
-    };
-
-    // Update session in backend
+    setSessionData(prev => ({ ...prev, ...dataToUse, isActive: false }));
+    
     if (sessionId) {
-      updateSessionMutation.mutate({
-        id: sessionId,
-        data: {
-          text: sessionData.text,
-          wpm: finalData.currentWpm,
-          accuracy: finalData.accuracy,
-          errors: finalData.errors,
-          timeSpent: finalData.timeSpent,
-          completed: true,
-          passed: finalData.passed,
-          keystrokeData: keystrokeBuffer.current,
-          completedAt: new Date().toISOString(),
-        },
-      });
-      
-      // Refresh stats after session completion
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
-
-      // Submit analytics
-      submitAnalyticsMutation.mutate({
-        sessionId,
-        keystrokeData: keystrokeBuffer.current,
-        finalMetrics: {
-          wpm: finalData.currentWpm,
-          accuracy: finalData.accuracy,
-          errors: finalData.errors,
-          timeSpent: finalData.timeSpent,
-          keystrokeCount: keystrokeBuffer.current.length,
-        },
-      });
+      performSubmission(sessionId, dataToUse);
+    } else {
+      setIsPendingSubmission(true);
     }
+  }, [sessionId, performSubmission]);
 
-    options.onComplete?.(finalData);
-  }, [sessionData, sessionId, options, updateSessionMutation, submitAnalyticsMutation]);
+  // Effect to handle delayed submission once sessionId is available
+  useEffect(() => {
+    if (sessionId && isPendingSubmission && finalDataRef.current) {
+      performSubmission(sessionId, finalDataRef.current);
+      setIsPendingSubmission(false);
+    }
+  }, [sessionId, isPendingSubmission, performSubmission]);
 
   const updateTyping = useCallback((newInput: string) => {
-    if (!sessionData.isActive || !startTime) return;
+    const previousLength = typedText.length;
+    
+    // Enforcement: If backspace is not allowed, reject any input that is shorter than previous
+    if (options.allowBackspace === false && newInput.length < previousLength) {
+      setInputValue(typedText);
+      return;
+    }
 
-    const now = Date.now();
-    const timeElapsed = now - startTime;
+    // Current target text
+    const targetText = sessionData.text || "";
+    
+    // Always sync the input value immediately
+    setInputValue(newInput);
+    
+    let effectiveStartTime = startTime;
+    let currentNow = Date.now();
+
+    let isJustStarting = false;
+    // If session hasn't started, start it on first input
+    if ((!sessionDataRef.current.isActive || !startTime) && newInput.length > 0) {
+      startSession();
+      effectiveStartTime = currentNow;
+      setTypedText(newInput);
+      isJustStarting = true;
+    }
+
+    if (!sessionDataRef.current.isActive && !isJustStarting && newInput.length > 0) {
+      return;
+    } else if (!sessionDataRef.current.isActive && !startTime && !isJustStarting) {
+      return;
+    }
+
+    const now = currentNow;
+    const finalStartTime = effectiveStartTime || now;
+    const timeElapsed = now - finalStartTime;
     const minutes = timeElapsed / 60000;
 
     // Calculate accurate typing metrics
-    const targetText = sessionData.text;
     const correctChars = newInput.split('').reduce((count, char, index) => {
       if (index >= targetText.length) return count;
       return count + (char === targetText[index] ? 1 : 0);
@@ -247,6 +357,21 @@ export function useTypingSession(options: UseTypingSessionOptions = {}) {
     const totalChars = Math.min(newInput.length, targetText.length);
     const errors = totalChars - correctChars;
     
+    // Log the new keystroke
+    if (newInput.length > previousLength) {
+      const addedChar = newInput[newInput.length - 1];
+      const expectedChar = targetText[previousLength];
+      const isCorrect = addedChar === expectedChar;
+      
+      keystrokeBuffer.current.push({
+        key: addedChar,
+        timestamp: now,
+        correct: isCorrect,
+        timingMs: keystrokeBuffer.current.length > 0 ? 
+          now - keystrokeBuffer.current[keystrokeBuffer.current.length - 1].timestamp : 0,
+      });
+    }
+
     // WPM calculation: (correct characters / 5) / minutes
     const currentWpm = minutes > 0 && correctChars > 0 ? Math.round((correctChars / 5) / minutes) : 0;
     
@@ -255,7 +380,8 @@ export function useTypingSession(options: UseTypingSessionOptions = {}) {
 
     // Update session data
     const updatedSessionData = {
-      ...sessionData,
+      ...sessionDataRef.current,
+      isActive: isJustStarting ? true : sessionDataRef.current.isActive,
       currentWpm: Math.max(0, currentWpm),
       accuracy: Math.max(0, Math.min(100, accuracy)),
       errors: Math.max(0, errors),
@@ -263,6 +389,7 @@ export function useTypingSession(options: UseTypingSessionOptions = {}) {
       currentPosition: newInput.length,
     };
 
+    sessionDataRef.current = updatedSessionData;
     setSessionData(updatedSessionData);
     setTypedText(newInput);
     setInputValue(newInput);
@@ -272,9 +399,9 @@ export function useTypingSession(options: UseTypingSessionOptions = {}) {
 
     // Check if session is complete
     if (newInput.length >= targetText.length) {
-      endSession();
+      endSession(updatedSessionData);
     }
-  }, [sessionData, sessionId, startTime, endSession]);
+  }, [sessionId, startTime, endSession, startSession, options.allowBackspace, sessionData.text, typedText.length]);
 
   const handleKeyPress = useCallback((key: string, correct: boolean) => {
     if (!sessionData.isActive || !startTime) return;
@@ -364,6 +491,7 @@ export function useTypingSession(options: UseTypingSessionOptions = {}) {
     resetSession,
     updateTyping,
     handleKeyPress,
+    hasStarted,
     isLoading: createSessionMutation.isPending || updateSessionMutation.isPending,
     error: createSessionMutation.error || updateSessionMutation.error,
   };

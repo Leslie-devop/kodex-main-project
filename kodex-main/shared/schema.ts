@@ -38,9 +38,14 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
-  role: userRoleEnum("role").notNull().default("student"),
+  role: userRoleEnum("role"), // Nullable initially to force onboarding
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+  verificationCode: varchar("verification_code"),
+  verificationExpiry: timestamp("verification_expiry"),
+  isVerified: boolean("is_verified").default(false),
+  hasConsent: boolean("has_consent").default(false),
+  isPushVerified: boolean("is_push_verified").default(false),
 });
 
 // Lessons table
@@ -51,9 +56,13 @@ export const lessons = pgTable("lessons", {
   content: text("content").notNull(),
   difficulty: varchar("difficulty").notNull().default("beginner"), // beginner, intermediate, advanced
   estimatedTime: integer("estimated_time"), // in minutes
-  maxAttempts: integer("max_attempts").default(0), // 0 for unlimited
+  maxAttempts: integer("max_attempts").notNull().default(0), // 0 for unlimited
   timeLimit: integer("time_limit"), // in seconds
   createdBy: varchar("created_by").notNull().references(() => users.id),
+  classroomId: varchar("classroom_id").references(() => classrooms.id), // Nullable for general lessons
+  isPublic: boolean("is_public").default(false),
+  isStandalone: boolean("is_standalone").default(false),
+  allowBackspace: boolean("allow_backspace").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -62,7 +71,9 @@ export const lessons = pgTable("lessons", {
 export const classrooms = pgTable("classrooms", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name").notNull(),
+  description: text("description"),
   section: varchar("section"),
+  inviteCode: varchar("invite_code").unique().notNull().default(sql`substring(md5(random()::text) from 1 for 6)`),
   teacherId: varchar("teacher_id").notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -76,6 +87,27 @@ export const classroomStudents = pgTable("classroom_students", {
   joinedAt: timestamp("joined_at").defaultNow(),
 });
 
+// Classroom announcements
+export const classroomAnnouncements = pgTable("classroom_announcements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  classroomId: varchar("classroom_id").notNull().references(() => classrooms.id),
+  teacherId: varchar("teacher_id").notNull().references(() => users.id),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Classroom modules (files/links)
+export const classroomModules = pgTable("classroom_modules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  classroomId: varchar("classroom_id").notNull().references(() => classrooms.id),
+  teacherId: varchar("teacher_id").notNull().references(() => users.id),
+  title: varchar("title").notNull(),
+  description: text("description"),
+  type: varchar("type").notNull().default("file"), // file, link
+  url: text("url").notNull(), // Change to text as it may contain base64 payload
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Lesson assignments table
 export const lessonAssignments = pgTable("lesson_assignments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -86,9 +118,12 @@ export const lessonAssignments = pgTable("lesson_assignments", {
   dueDate: timestamp("due_date"),
   allowBackspace: boolean("allow_backspace").default(true),
   status: varchar("status").notNull().default("pending"), // pending, in_progress, completed, overdue
-  progress: decimal("progress", { precision: 5, scale: 2 }).default("0.00"), // 0-100%
-  assignedAt: timestamp("assigned_at").defaultNow(),
+  progress: decimal("progress", { precision: 5, scale: 2 }).notNull().default("0.00"), // 0-100%
+  assignedAt: timestamp("assigned_at").notNull().defaultNow(),
   completedAt: timestamp("completed_at"),
+  feedback: text("feedback"),
+  maxAttempts: integer("max_attempts").notNull().default(0), // 0 for unlimited, overrides lesson.maxAttempts
+  timeLimit: integer("time_limit"), // overrides lesson.timeLimit if set
 });
 
 // Typing activities table
@@ -114,8 +149,10 @@ export const typingSessions = pgTable("typing_sessions", {
   errors: integer("errors").default(0),
   timeSpent: integer("time_spent"), // in seconds
   completed: boolean("completed").default(false),
+  assignmentId: varchar("assignment_id").references(() => lessonAssignments.id),
   passed: boolean("passed").default(false), // met requirements
   keystrokeData: jsonb("keystroke_data"), // detailed keystroke analysis
+  postureScore: integer("posture_score").default(100), // 0-100 AI alignment score
   startedAt: timestamp("started_at").defaultNow(),
   completedAt: timestamp("completed_at"),
 });
@@ -153,6 +190,18 @@ export const errorPatterns = pgTable("error_patterns", {
   lastOccurrence: timestamp("last_occurrence").defaultNow(),
 });
 
+// Notifications table
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  type: varchar("type").notNull(), // assignment_created, assignment_completed, lesson_created, module_uploaded
+  message: text("message").notNull(),
+  relatedId: varchar("related_id"), // assignmentId, lessonId, moduleId
+  classroomId: varchar("classroom_id").references(() => classrooms.id),
+  isRead: boolean("is_read").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Define relations
 export const usersRelations = relations(users, ({ many }) => ({
   createdLessons: many(lessons),
@@ -161,6 +210,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   aiSuggestions: many(aiSuggestions),
   errorPatterns: many(errorPatterns),
   classrooms: many(classrooms),
+  notifications: many(notifications),
 }));
 
 export const classroomsRelations = relations(classrooms, ({ one, many }) => ({
@@ -223,6 +273,17 @@ export const typingSessionsRelations = relations(typingSessions, ({ one, many })
   keystrokeAnalytics: many(keystrokeAnalytics),
 }));
 
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, {
+    fields: [notifications.userId],
+    references: [users.id],
+  }),
+  classroom: one(classrooms, {
+    fields: [notifications.classroomId],
+    references: [classrooms.id],
+  }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -249,10 +310,31 @@ export const insertLessonSchema = createInsertSchema(lessons).omit({
   updatedAt: true,
 });
 
-export const insertLessonAssignmentSchema = createInsertSchema(lessonAssignments).omit({
+export const insertClassroomAnnouncementSchema = createInsertSchema(classroomAnnouncements).omit({ 
+  id: true,
+  createdAt: true
+});
+
+export type InsertClassroomAnnouncement = z.infer<typeof insertClassroomAnnouncementSchema>;
+export type ClassroomAnnouncement = typeof classroomAnnouncements.$inferSelect;
+
+export const insertClassroomModuleSchema = createInsertSchema(classroomModules).omit({ 
+  id: true,
+  createdAt: true
+});
+
+export type InsertClassroomModule = z.infer<typeof insertClassroomModuleSchema>;
+export type ClassroomModule = typeof classroomModules.$inferSelect;
+
+export const insertLessonAssignmentSchema = createInsertSchema(lessonAssignments).extend({
+  dueDate: z.any().transform(v => {
+    if (!v) return null;
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? null : d;
+  }),
+}).omit({
   id: true,
   assignedAt: true,
-  completedAt: true,
 });
 
 export const insertTypingActivitySchema = createInsertSchema(typingActivities).omit({
@@ -263,7 +345,6 @@ export const insertTypingActivitySchema = createInsertSchema(typingActivities).o
 export const insertTypingSessionSchema = createInsertSchema(typingSessions).omit({
   id: true,
   startedAt: true,
-  completedAt: true,
 });
 
 export const insertKeystrokeAnalyticsSchema = createInsertSchema(keystrokeAnalytics).omit({
@@ -290,6 +371,11 @@ export const insertClassroomSchema = createInsertSchema(classrooms).omit({
 export const insertClassroomStudentSchema = createInsertSchema(classroomStudents).omit({
   id: true,
   joinedAt: true,
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
 });
 
 // Types
@@ -323,3 +409,7 @@ export type InsertClassroom = z.infer<typeof insertClassroomSchema>;
 
 export type ClassroomStudent = typeof classroomStudents.$inferSelect;
 export type InsertClassroomStudent = z.infer<typeof insertClassroomStudentSchema>;
+
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+

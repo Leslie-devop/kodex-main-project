@@ -74,6 +74,11 @@ export interface LessonAssignment {
   progress: string;
   assignedAt: string;
   completedAt: string | null;
+  maxAttempts: number;
+  timeLimit: number | null;
+  sessionCount?: number;
+  feedback?: string;
+  classroomId?: string;
 }
 
 export interface TypingActivity {

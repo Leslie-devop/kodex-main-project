@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRoute } from "wouter";
+import { useRoute, useLocation } from "wouter";
 import { Calendar, Users, BookOpen, Clock, ArrowLeft } from "lucide-react";
 import { Link } from "wouter";
 
@@ -40,6 +40,10 @@ export default function LessonAssign() {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [location] = useLocation();
+  const searchParams = new URLSearchParams(location.split('?')[1]);
+  const queryClassroomId = searchParams.get('classroom') || undefined;
+  
   const [, params] = useRoute("/teacher/lessons/:id/assign");
   const lessonId = params?.id;
 
@@ -56,7 +60,9 @@ export default function LessonAssign() {
 
   // Fetch students
   const { data: students, isLoading: studentsLoading } = useQuery<Student[]>({
-    queryKey: ["/api/teacher/students"],
+    queryKey: queryClassroomId 
+      ? [`/api/classrooms/${queryClassroomId}/students`]
+      : ["/api/teacher/students"],
     retry: false,
   });
 
@@ -174,6 +180,7 @@ export default function LessonAssign() {
     const assignments: AssignmentData[] = selectedStudents.map(studentId => ({
       lessonId,
       studentId,
+      classroomId: queryClassroomId,
       ...(dueDate && { dueDate: new Date(dueDate).toISOString() }),
     }));
 

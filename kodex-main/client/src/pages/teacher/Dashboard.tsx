@@ -57,30 +57,34 @@ export default function TeacherDashboard() {
     }
   }, [user, isAuthenticated, isLoading, toast]);
 
-  // Fetch teacher dashboard data
+  // Fetch teacher dashboard data with high frequency polling
   const { data: dashboardStats } = useQuery<any>({
     queryKey: ["/api/teacher/dashboard-stats"],
     retry: false,
+    refetchInterval: 60000,
   });
-
+  
   const { data: assignments } = useQuery<any[]>({
     queryKey: ["/api/assignments/teacher"],
     retry: false,
+    refetchInterval: 60000,
   });
-
+  
   const { data: classrooms } = useQuery<any[]>({
     queryKey: ["/api/classrooms"],
     retry: false,
+    refetchInterval: 60000,
   });
-
+  
   const { data: progressData } = useQuery<any[]>({
     queryKey: ["/api/teacher/progress"],
     retry: false,
+    refetchInterval: 60000,
   });
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0f172a]">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-[#0f172a]">
         <div className="relative">
           <div className="h-24 w-24 rounded-full border-t-4 border-b-4 border-blue-500 animate-spin"></div>
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-blue-500 font-bold">K</div>
@@ -143,7 +147,7 @@ export default function TeacherDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-white selection:bg-blue-500/30">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0f172a] text-gray-900 dark:text-white selection:bg-blue-500/30">
       <Header />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -154,10 +158,10 @@ export default function TeacherDashboard() {
           className="mb-12 relative"
         >
           <div className="absolute -left-4 top-0 w-1 h-full bg-blue-600 rounded-full"></div>
-          <h2 className="text-4xl font-extrabold tracking-tight mb-2 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
+          <h2 className="text-4xl font-extrabold tracking-tight mb-2 bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-500 dark:from-white dark:to-gray-400">
             Welcome back, {user?.firstName || "Teacher"}!
           </h2>
-          <p className="text-gray-400 text-lg">Your command center for student typing excellence.</p>
+          <p className="text-gray-500 dark:text-gray-400 text-lg">Your command center for student typing excellence.</p>
         </motion.div>
 
         {/* Stats Grid */}
@@ -169,7 +173,7 @@ export default function TeacherDashboard() {
         >
           {stats.map((stat, i) => (
             <motion.div key={i} variants={itemVariants}>
-              <Card className="bg-white/5 border-white/10 backdrop-blur-xl hover:bg-white/10 transition-all duration-300 group">
+              <Card className="bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 backdrop-blur-xl hover:bg-gray-50 dark:hover:bg-white/10 shadow-sm dark:shadow-none transition-all duration-300 group">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between mb-4">
                     <div className={`p-3 rounded-2xl bg-gradient-to-br ${stat.color} shadow-lg shadow-black/20 group-hover:scale-110 transition-transform`}>
@@ -177,11 +181,11 @@ export default function TeacherDashboard() {
                     </div>
                   </div>
                   <div>
-                    <h3 className="text-gray-400 text-sm font-medium mb-1">{stat.label}</h3>
-                    <div className="text-3xl font-bold tracking-tight text-white mb-1">
+                    <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium mb-1">{stat.label}</h3>
+                    <div className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white mb-1">
                       {stat.value}
                     </div>
-                    <p className="text-xs text-gray-500">{stat.description}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500">{stat.description}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -197,16 +201,16 @@ export default function TeacherDashboard() {
             className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4"
           >
             <Link href="/teacher/lessons/create">
-              <div className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 to-indigo-700 p-8 cursor-pointer h-full border border-white/10">
-                <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-125 transition-transform duration-500">
+              <div className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-600 dark:to-indigo-700 p-8 cursor-pointer h-full border border-blue-200 dark:border-white/10 shadow-sm dark:shadow-none">
+                <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-125 transition-transform duration-500 text-blue-900 dark:text-white">
                   <Plus size={120} />
                 </div>
                 <div className="relative z-10 flex flex-col h-full justify-between">
                   <div>
-                    <h3 className="text-2xl font-bold mb-2">Create Lesson</h3>
-                    <p className="text-blue-100/70">Design unique typing experiences with custom content and constraints.</p>
+                    <h3 className="text-2xl font-bold mb-2 text-blue-900 dark:text-white">Create Lesson</h3>
+                    <p className="text-blue-800 dark:text-blue-100/70">Design unique typing experiences with custom content and constraints.</p>
                   </div>
-                  <div className="mt-8 flex items-center text-sm font-bold bg-white/20 w-fit px-4 py-2 rounded-full backdrop-blur-md">
+                  <div className="mt-8 flex items-center text-sm font-bold bg-white/50 dark:bg-white/20 text-blue-900 dark:text-white w-fit px-4 py-2 rounded-full backdrop-blur-md">
                     Get Started <ArrowRight className="ml-2 h-4 w-4" />
                   </div>
                 </div>
@@ -214,39 +218,39 @@ export default function TeacherDashboard() {
             </Link>
 
             <Link href="/teacher/classrooms">
-              <div className="group relative overflow-hidden rounded-3xl bg-white/5 backdrop-blur-xl p-8 cursor-pointer h-full border border-white/10 hover:bg-white/10 transition-all">
-                <div className="mb-4 p-3 rounded-2xl bg-purple-500/20 w-fit">
-                  <School className="h-6 w-6 text-purple-400" />
+              <div className="group relative overflow-hidden rounded-3xl bg-white dark:bg-white/5 backdrop-blur-xl p-8 cursor-pointer h-full border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/10 transition-all shadow-sm dark:shadow-none">
+                <div className="mb-4 p-3 rounded-2xl bg-purple-100 dark:bg-purple-500/20 w-fit">
+                  <School className="h-6 w-6 text-purple-600 dark:text-purple-400" />
                 </div>
-                <h3 className="text-xl font-bold mb-2 text-white">Manage Classrooms</h3>
-                <p className="text-gray-400 text-sm mb-6">Organize your students into sections and monitor their combined progress.</p>
-                <div className="mt-auto flex items-center text-purple-400 text-sm font-semibold">
+                <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">Manage Classrooms</h3>
+                <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">Organize your students into sections and monitor their combined progress.</p>
+                <div className="mt-auto flex items-center text-purple-600 dark:text-purple-400 text-sm font-semibold">
                   View Classrooms <ChevronRight className="ml-1 h-4 w-4" />
                 </div>
               </div>
             </Link>
 
             <Link href="/teacher/reports">
-              <div className="group relative overflow-hidden rounded-3xl bg-white/5 backdrop-blur-xl p-8 cursor-pointer h-full border border-white/10 hover:bg-white/10 transition-all">
-                <div className="mb-4 p-3 rounded-2xl bg-orange-500/20 w-fit">
-                  <FileText className="h-6 w-6 text-orange-400" />
+              <div className="group relative overflow-hidden rounded-3xl bg-white dark:bg-white/5 backdrop-blur-xl p-8 cursor-pointer h-full border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/10 transition-all shadow-sm dark:shadow-none">
+                <div className="mb-4 p-3 rounded-2xl bg-orange-100 dark:bg-orange-500/20 w-fit">
+                  <FileText className="h-6 w-6 text-orange-600 dark:text-orange-400" />
                 </div>
-                <h3 className="text-xl font-bold mb-2 text-white">Generate Reports</h3>
-                <p className="text-gray-400 text-sm mb-6">Export detailed analytics for offline review and administrative use.</p>
-                <div className="mt-auto flex items-center text-orange-400 text-sm font-semibold">
+                <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">Generate Reports</h3>
+                <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">Export detailed analytics for offline review and administrative use.</p>
+                <div className="mt-auto flex items-center text-orange-600 dark:text-orange-400 text-sm font-semibold">
                   Export Data <ChevronRight className="ml-1 h-4 w-4" />
                 </div>
               </div>
             </Link>
 
             <Link href="/teacher/students">
-              <div className="group relative overflow-hidden rounded-3xl bg-white/5 backdrop-blur-xl p-8 cursor-pointer h-full border border-white/10 hover:bg-white/10 transition-all">
-                <div className="mb-4 p-3 rounded-2xl bg-emerald-500/20 w-fit">
-                  <Users className="h-6 w-6 text-emerald-400" />
+              <div className="group relative overflow-hidden rounded-3xl bg-white dark:bg-white/5 backdrop-blur-xl p-8 cursor-pointer h-full border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/10 transition-all shadow-sm dark:shadow-none">
+                <div className="mb-4 p-3 rounded-2xl bg-emerald-100 dark:bg-emerald-500/20 w-fit">
+                  <Users className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
                 </div>
-                <h3 className="text-xl font-bold mb-2 text-white">Student Directory</h3>
-                <p className="text-gray-400 text-sm mb-6">Search and manage individual student profiles and their status.</p>
-                <div className="mt-auto flex items-center text-emerald-400 text-sm font-semibold">
+                <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">Student Directory</h3>
+                <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">Search and manage individual student profiles and their status.</p>
+                <div className="mt-auto flex items-center text-emerald-600 dark:text-emerald-400 text-sm font-semibold">
                   View All Students <ChevronRight className="ml-1 h-4 w-4" />
                 </div>
               </div>
@@ -259,11 +263,11 @@ export default function TeacherDashboard() {
             animate={{ opacity: 1, x: 0 }}
             className="flex flex-col gap-6"
           >
-            <Card className="bg-white/5 border-white/10 backdrop-blur-xl overflow-hidden">
-              <CardHeader className="border-b border-white/5 bg-white/[0.02]">
+            <Card className="bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 backdrop-blur-xl overflow-hidden shadow-sm dark:shadow-none">
+              <CardHeader className="border-b border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/[0.02]">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">Class Performance</CardTitle>
-                  <BarChart3 className="h-5 w-5 text-gray-500" />
+                  <CardTitle className="text-lg text-gray-900 dark:text-white">Class Performance</CardTitle>
+                  <BarChart3 className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                 </div>
               </CardHeader>
               <CardContent className="p-6">
@@ -285,18 +289,18 @@ export default function TeacherDashboard() {
                     </div>
                     <div className="space-y-3">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-400">Completed Assignments</span>
-                        <span className="text-emerald-400 font-bold">{progressData.filter(p => p.status === 'completed').length}</span>
+                        <span className="text-gray-600 dark:text-gray-400">Completed Assignments</span>
+                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">{progressData.filter(p => p.status === 'completed').length}</span>
                       </div>
-                      <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden">
+                      <div className="w-full bg-gray-100 dark:bg-white/5 h-2 rounded-full overflow-hidden">
                         <div 
                           className="bg-emerald-500 h-full rounded-full" 
                           style={{ width: `${(progressData.filter(p => p.status === 'completed').length / progressData.length) * 100}%` }}
                         ></div>
                       </div>
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-400">In Progress</span>
-                        <span className="text-blue-400 font-bold">{progressData.filter(p => p.status === 'in_progress').length}</span>
+                        <span className="text-gray-600 dark:text-gray-400">In Progress</span>
+                        <span className="text-blue-600 dark:text-blue-400 font-bold">{progressData.filter(p => p.status === 'in_progress').length}</span>
                       </div>
                     </div>
                   </div>
@@ -312,7 +316,7 @@ export default function TeacherDashboard() {
             </Card>
 
             <Link href="/teacher/progress">
-              <Button className="w-full h-14 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold tracking-wide group">
+              <Button className="w-full h-14 rounded-2xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/10 text-gray-900 dark:text-white font-bold tracking-wide group shadow-sm dark:shadow-none">
                 DETAILED ANALYTICS 
                 <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Button>
@@ -338,29 +342,29 @@ export default function TeacherDashboard() {
             <div className="space-y-3">
               {assignments && assignments.length > 0 ? (
                 assignments.slice(0, 4).map((assignment) => (
-                  <div key={assignment.id} className="group bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center justify-between transition-all hover:bg-white/[0.07] hover:border-white/20">
+                  <div key={assignment.id} className="group bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-2xl p-4 flex items-center justify-between transition-all hover:bg-gray-50 dark:hover:bg-white/[0.07] hover:border-blue-200 dark:hover:border-white/20 shadow-sm dark:shadow-none">
                     <div className="flex items-center space-x-4">
-                      <div className="h-12 w-12 rounded-xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
-                        <FileText className="h-6 w-6 text-blue-400" />
+                      <div className="h-12 w-12 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center border border-blue-100 dark:border-blue-500/20">
+                        <FileText className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                       </div>
                       <div>
-                        <p className="font-bold text-white group-hover:text-blue-400 transition-colors">{assignment.lesson?.title || 'Unknown Lesson'}</p>
-                        <p className="text-xs text-gray-500 uppercase tracking-widest font-bold mt-0.5">
+                        <p className="font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{assignment.lesson?.title || 'Unknown Lesson'}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-500 uppercase tracking-widest font-bold mt-0.5">
                           {assignment.student ? `Student: ${assignment.student.firstName}` : assignment.classroom ? `Class: ${assignment.classroom.name}` : 'Individual'}
                         </p>
                       </div>
                     </div>
                     <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${
-                      assignment.status === 'completed' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                      assignment.status === 'in_progress' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
-                      'bg-gray-500/20 text-gray-400 border border-gray-500/30'
+                      assignment.status === 'completed' ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30' :
+                      assignment.status === 'in_progress' ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30' :
+                      'bg-gray-100 dark:bg-gray-500/20 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-500/30'
                     }`}>
                       {assignment.status}
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="bg-white/5 border border-white/10 rounded-3xl p-12 text-center">
+                <div className="bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-3xl p-12 text-center shadow-sm dark:shadow-none">
                   <p className="text-gray-500 font-medium">No recent assignments</p>
                 </div>
               )}
@@ -384,26 +388,26 @@ export default function TeacherDashboard() {
             <div className="grid grid-cols-1 gap-3">
               {classrooms && classrooms.length > 0 ? (
                 classrooms.slice(0, 4).map((room) => (
-                  <div key={room.id} className="group bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center justify-between hover:bg-white/[0.07] transition-all">
+                  <div key={room.id} className="group bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-2xl p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-white/[0.07] transition-all shadow-sm dark:shadow-none">
                     <div className="flex items-center space-x-4">
-                      <div className="h-12 w-12 rounded-xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
-                        <Users className="h-6 w-6 text-purple-400" />
+                      <div className="h-12 w-12 rounded-xl bg-purple-50 dark:bg-purple-500/10 flex items-center justify-center border border-purple-100 dark:border-purple-500/20">
+                        <Users className="h-6 w-6 text-purple-600 dark:text-purple-400" />
                       </div>
                       <div>
-                        <p className="font-bold text-white">{room.name}</p>
+                        <p className="font-bold text-gray-900 dark:text-white">{room.name}</p>
                         <p className="text-xs text-gray-500 uppercase tracking-widest font-bold mt-0.5">{room.section || 'No Section'}</p>
                       </div>
                     </div>
-                    <Button variant="ghost" size="icon" className="text-gray-500 hover:text-white hover:bg-white/10 rounded-xl">
+                    <Button variant="ghost" size="icon" className="text-gray-400 dark:text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10 rounded-xl">
                       <ArrowRight className="h-5 w-5" />
                     </Button>
                   </div>
                 ))
               ) : (
-                <div className="bg-white/5 border border-white/10 rounded-3xl p-12 text-center h-full flex flex-col items-center justify-center">
+                <div className="bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-3xl p-12 text-center h-full flex flex-col items-center justify-center shadow-sm dark:shadow-none">
                   <p className="text-gray-500 mb-4 font-medium">No classrooms established</p>
                   <Link href="/teacher/classrooms">
-                    <Button size="sm" className="bg-purple-600 hover:bg-purple-500 text-white rounded-full px-6">
+                    <Button size="sm" className="bg-purple-600 hover:bg-purple-500 text-white rounded-full px-6 shadow-sm">
                       Establish First Room
                     </Button>
                   </Link>

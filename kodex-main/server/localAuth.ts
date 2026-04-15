@@ -1,19 +1,36 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import session from "express-session";
-import connectPg from "connect-pg-simple";
 import type { Express, RequestHandler } from "express";
 import { authService } from "./auth";
 
-export function getLocalSession() {
+import createMemoryStore from "memorystore";
+
+export async function getLocalSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
-  const pgStore = connectPg(session);
-  const sessionStore = new pgStore({
-    conString: process.env.DATABASE_URL,
-    createTableIfMissing: false,
-    ttl: sessionTtl,
-    tableName: "sessions",
-  });
+  let sessionStore;
+
+  if (process.env.USE_MEMORY_STORAGE === "true") {
+    const MemoryStore = createMemoryStore(session);
+    sessionStore = new MemoryStore({
+      checkPeriod: 86400000 // prune expired entries every 24h
+    });
+  } else {
+    // Dynamic import to avoid loading PG dependencies in memory-only mode
+    const connectPg = (await import("connect-pg-simple")).default;
+    const { Pool } = await import("@neondatabase/serverless");
+    const pgStore = connectPg(session);
+    
+    // Create a pool only when needed or use an existing one
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+    sessionStore = new pgStore({
+      pool: pool,
+      createTableIfMissing: false,
+      ttl: sessionTtl,
+      tableName: "sessions",
+    });
+  }
   
   return session({
     secret: process.env.SESSION_SECRET || 'typing-master-secret-key',
@@ -30,7 +47,7 @@ export function getLocalSession() {
 
 export async function setupLocalAuth(app: Express) {
   app.set("trust proxy", 1);
-  app.use(getLocalSession());
+  app.use(await getLocalSession());
   app.use(passport.initialize());
   app.use(passport.session());
 

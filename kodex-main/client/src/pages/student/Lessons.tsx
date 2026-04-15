@@ -28,6 +28,7 @@ export default function StudentLessons() {
   const { data: lessons, isLoading } = useQuery<Lesson[]>({
     queryKey: ["/api/lessons"],
     retry: false,
+    refetchInterval: 60000,
   });
 
   if (!isAuthenticated) {
@@ -66,12 +67,12 @@ export default function StudentLessons() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-white selection:bg-blue-500/30">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0f172a] text-slate-900 dark:text-white selection:bg-blue-500/30">
       <Header />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="mb-12">
-          <h2 className="text-4xl font-extrabold tracking-tight mb-2 flex items-center">
+          <h2 className="text-4xl font-extrabold tracking-tight mb-2 flex items-center text-slate-900 dark:text-white">
             <BookOpen className="mr-4 h-8 w-8 text-blue-500" />
             Available Lessons
           </h2>
@@ -80,7 +81,7 @@ export default function StudentLessons() {
 
         {/* Summary Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <Card data-testid="card-total-lessons" className="bg-white/5 border-white/10 backdrop-blur-xl">
+          <Card data-testid="card-total-lessons" className="bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 backdrop-blur-xl shadow-sm dark:shadow-none">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
                 Available Lessons
@@ -88,13 +89,13 @@ export default function StudentLessons() {
               <BookOpen className="h-4 w-4 text-gray-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-white">
+              <div className="text-2xl font-bold text-slate-900 dark:text-white">
                 {lessons?.length || 0}
               </div>
             </CardContent>
           </Card>
 
-          <Card data-testid="card-beginner-lessons" className="bg-white/5 border-white/10 backdrop-blur-xl">
+          <Card data-testid="card-beginner-lessons" className="bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 backdrop-blur-xl shadow-sm dark:shadow-none">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
                 Beginner Lessons
@@ -111,7 +112,7 @@ export default function StudentLessons() {
             </CardContent>
           </Card>
 
-          <Card data-testid="card-search-results" className="bg-white/5 border-white/10 backdrop-blur-xl">
+          <Card data-testid="card-search-results" className="bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 backdrop-blur-xl shadow-sm dark:shadow-none">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
                 Search Results
@@ -137,7 +138,7 @@ export default function StudentLessons() {
               placeholder="Search lessons by title, description, or difficulty..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-11 bg-white/5 border-white/10 h-14 rounded-2xl focus:ring-blue-500 text-white"
+              className="pl-11 bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 h-14 rounded-2xl focus:ring-blue-500 text-slate-900 dark:text-white"
               data-testid="input-search"
             />
           </div>
@@ -148,38 +149,38 @@ export default function StudentLessons() {
           {isLoading ? (
             // Loading skeleton
             [...Array(6)].map((_, i) => (
-              <Card key={i} className="animate-pulse bg-white/5 border-white/10 rounded-[2rem]">
+              <Card key={i} className="animate-pulse bg-white dark:bg-white/5 border-gray-100 dark:border-white/10 rounded-[2rem]">
                 <CardHeader>
-                  <div className="h-5 bg-white/10 rounded w-3/4 mb-3"></div>
-                  <div className="h-3 bg-white/10 rounded w-1/2"></div>
+                  <div className="h-5 bg-gray-100 dark:bg-white/10 rounded w-3/4 mb-3"></div>
+                  <div className="h-3 bg-gray-100 dark:bg-white/10 rounded w-1/2"></div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="h-3 bg-white/10 rounded"></div>
-                    <div className="h-3 bg-white/10 rounded w-5/6"></div>
-                    <div className="h-12 bg-white/10 rounded-xl mt-4"></div>
+                    <div className="h-3 bg-gray-100 dark:bg-white/10 rounded"></div>
+                    <div className="h-3 bg-gray-100 dark:bg-white/10 rounded w-5/6"></div>
+                    <div className="h-12 bg-gray-100 dark:bg-white/10 rounded-xl mt-4"></div>
                   </div>
                 </CardContent>
               </Card>
             ))
           ) : filteredLessons.length > 0 ? (
             filteredLessons.map((lesson) => (
-              <Card key={lesson.id} className="bg-white/5 border-white/10 hover:bg-white/[0.07] hover:border-blue-500/30 transition-all rounded-[2rem] overflow-hidden group" data-testid={`card-lesson-${lesson.id}`}>
+              <Card key={lesson.id} className="bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/[0.07] hover:border-blue-500/30 transition-all rounded-[2rem] shadow-sm dark:shadow-none overflow-hidden group" data-testid={`card-lesson-${lesson.id}`}>
                 <CardHeader className="p-8 pb-4">
                   <div className="flex items-start justify-between mb-4">
                     <Badge className={getDifficultyColor(lesson.difficulty)}>
                       {lesson.difficulty}
                     </Badge>
                   </div>
-                  <CardTitle className="text-2xl font-bold text-white mb-2 line-clamp-2 group-hover:text-blue-400 transition-colors">
+                  <CardTitle className="text-2xl font-bold text-slate-900 dark:text-white mb-2 line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                     {lesson.title}
                   </CardTitle>
-                  <p className="text-sm text-gray-400 line-clamp-2 leading-relaxed">
+                  <p className="text-sm text-slate-500 dark:text-gray-400 line-clamp-2 leading-relaxed">
                     {lesson.description}
                   </p>
                 </CardHeader>
                 <CardContent className="p-8 pt-4">
-                  <div className="flex items-center justify-between mb-8 pb-6 border-b border-white/10">
+                  <div className="flex items-center justify-between mb-8 pb-6 border-b border-gray-100 dark:border-white/10">
                     <div className="flex items-center text-xs font-bold text-gray-500 uppercase tracking-widest">
                       <Clock className="h-4 w-4 mr-2 text-blue-500" />
                       ~{lesson.estimatedTime} Min Session
@@ -197,9 +198,9 @@ export default function StudentLessons() {
               </Card>
             ))
           ) : (
-            <div className="col-span-full text-center py-24 bg-white/5 rounded-[3rem] border border-dashed border-white/10">
-              <BookOpen className="mx-auto h-20 w-20 text-gray-700 mb-6" />
-              <h3 className="text-2xl font-bold text-white mb-2">
+            <div className="col-span-full text-center py-24 bg-gray-200/20 dark:bg-white/5 rounded-[3rem] border border-dashed border-gray-300 dark:border-white/10">
+              <BookOpen className="mx-auto h-20 w-20 text-gray-300 dark:text-gray-700 mb-6" />
+              <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
                 {searchQuery ? "No Matches Detected" : "No Active Lessons"}
               </h3>
               <p className="text-gray-500 max-w-sm mx-auto">

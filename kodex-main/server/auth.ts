@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import { storage } from './storage';
 
 class AuthService {
-  async register(username: string, email: string, password: string, firstName?: string, lastName?: string, role: 'teacher' | 'student' = 'student') {
+  async register(username: string, email: string, password: string, firstName?: string, lastName?: string, role?: 'teacher' | 'student') {
     // Check if username or email already exists
     const existingUser = await storage.getUserByUsernameOrEmail(username, email);
     if (existingUser) {

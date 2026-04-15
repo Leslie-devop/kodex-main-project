@@ -17,7 +17,6 @@ export default function AISuggestions() {
     retry: false,
   });
 
-  // Acknowledge suggestion mutation
   const acknowledgeSuggestionMutation = useMutation({
     mutationFn: async (suggestionId: string) => {
       const response = await apiRequest("POST", `/api/ai/suggestions/${suggestionId}/acknowledge`);
@@ -25,193 +24,80 @@ export default function AISuggestions() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/ai/suggestions"] });
-      toast({
-        title: "Suggestion Acknowledged",
-        description: "Thank you for the feedback!",
-      });
-    },
-    onError: (error) => {
-      if (isUnauthorizedError(error as Error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      toast({
-        title: "Error",
-        description: "Failed to acknowledge suggestion",
-        variant: "destructive",
-      });
     },
   });
 
-  if (error && isUnauthorizedError(error as Error)) {
-    toast({
-      title: "Unauthorized",
-      description: "You are logged out. Logging in again...",
-      variant: "destructive",
-    });
-    setTimeout(() => {
-      window.location.href = "/api/login";
-    }, 500);
-    return null;
-  }
-
   const getSuggestionIcon = (type: string) => {
     switch (type) {
-      case "technique":
-        return <Lightbulb className="h-4 w-4 text-amber-400" />;
-      case "posture":
-        return <Hand className="h-4 w-4 text-emerald-400" />;
-      case "practice":
-        return <Target className="h-4 w-4 text-blue-400" />;
-      default:
-        return <Bot className="h-4 w-4 text-indigo-400" />;
+      case "technique": return <Lightbulb className="h-3 w-3 text-amber-400" />;
+      case "posture": return <Hand className="h-3 w-3 text-emerald-400" />;
+      case "practice": return <Target className="h-3 w-3 text-blue-400" />;
+      default: return <Bot className="h-3 w-3 text-indigo-400" />;
     }
   };
 
   const getSuggestionColor = (priority: string) => {
     switch (priority) {
-      case "high":
-        return "bg-red-500/10 border-red-500/20 text-red-400";
-      case "medium":
-        return "bg-blue-500/10 border-blue-500/20 text-blue-400";
-      case "low":
-        return "bg-emerald-500/10 border-emerald-500/20 text-emerald-400";
-      default:
-        return "bg-white/5 border-white/10 text-gray-400";
+      case "high": return "bg-red-500/5 border-red-500/20 text-red-600 dark:text-red-400";
+      case "medium": return "bg-blue-500/5 border-blue-500/20 text-blue-600 dark:text-blue-400";
+      default: return "bg-emerald-500/5 border-emerald-500/20 text-emerald-600 dark:text-emerald-400";
     }
   };
 
-  const getPriorityBadge = (priority: string) => {
-    switch (priority) {
-      case "high":
-        return <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-[9px] font-black uppercase tracking-tighter">CRITICAL ALERT</Badge>;
-      case "medium":
-        return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-[9px] font-black uppercase tracking-tighter">SYSTEM ADVISORY</Badge>;
-      case "low":
-        return <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[9px] font-black uppercase tracking-tighter">OPTIMAL SYNC</Badge>;
-      default:
-        return <Badge className="bg-white/5 border-white/10 text-gray-400 text-[9px] font-black uppercase tracking-tighter">{priority.toUpperCase()}</Badge>;
-    }
-  };
+  if (isLoading) return null;
 
-  const handleAcknowledge = (suggestionId: string) => {
-    acknowledgeSuggestionMutation.mutate(suggestionId);
-  };
-
-  // Mock suggestions for demo when no real data
-  const mockSuggestions = [
-    {
-      id: "mock-1",
-      type: "technique",
-      content: "Focus on 'th' combinations - you're 15% slower on these letter pairs. Practice typing words like 'the', 'that', 'think' repeatedly.",
-      priority: "medium",
-      acknowledged: false,
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: "mock-2",
-      type: "posture",
-      content: "Great posture detected! Keep your wrists straight and maintain this positioning for optimal performance.",
-      priority: "low",
-      acknowledged: false,
-      createdAt: new Date().toISOString(),
-    },
-  ];
-
-  const displaySuggestions = suggestions && suggestions.length > 0 ? suggestions : mockSuggestions;
-
-  if (isLoading) {
-    return (
-      <Card className="bg-white/5 border border-white/10 backdrop-blur-xl rounded-[2.5rem]">
-        <CardHeader>
-          <CardTitle className="flex items-center text-sm font-black text-gray-400 uppercase tracking-widest">
-            <Bot className="h-4 w-4 mr-3 text-blue-500" />
-            Neural Feedback
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="animate-pulse space-y-4">
-            <div className="h-4 bg-white/10 rounded w-3/4"></div>
-            <div className="h-4 bg-white/10 rounded w-1/2"></div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  const displaySuggestions = suggestions || [];
 
   return (
-    <Card className="bg-white/5 border border-white/10 backdrop-blur-xl rounded-[2.5rem] overflow-hidden">
-      <CardHeader className="p-8 pb-4 border-b border-white/5">
-        <CardTitle className="text-sm font-black text-gray-400 uppercase tracking-widest flex items-center">
-          <Bot className="h-4 w-4 mr-3 text-blue-400" />
-          Neural Feedback System
-        </CardTitle>
+    <Card className="bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 backdrop-blur-xl rounded-[2.5rem] shadow-sm dark:shadow-none overflow-hidden">
+      <CardHeader className="p-6 pb-4 border-b border-gray-50 dark:border-white/5 flex flex-row items-center gap-3">
+          <div className="p-2 bg-blue-500/10 rounded-lg">
+             <Bot className="h-4 w-4 text-blue-400" />
+          </div>
+          <CardTitle className="text-[10px] font-black text-slate-500 dark:text-gray-400 uppercase tracking-widest">
+            NEURAL FEEDBACK
+          </CardTitle>
       </CardHeader>
 
-      <CardContent className="p-8">
-        <div className="space-y-6">
-          {displaySuggestions.slice(0, 3).map((suggestion, index) => (
-            <div
-              key={suggestion.id}
-              className={`p-5 border rounded-2xl transition-all hover:bg-white/[0.03] ${getSuggestionColor(suggestion.priority)}`}
-              data-testid={`suggestion-${index}`}
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-black/20 rounded-lg">
-                    {getSuggestionIcon(suggestion.type)}
-                  </div>
-                  {getPriorityBadge(suggestion.priority)}
+      <CardContent className="p-6 space-y-4">
+        {displaySuggestions.slice(0, 2).map((suggestion, index) => (
+          <div
+            key={suggestion.id}
+            className={`p-4 border rounded-2xl transition-all ${getSuggestionColor(suggestion.priority)}`}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-black/20 rounded-md">
+                  {getSuggestionIcon(suggestion.type)}
                 </div>
-                
-                {!suggestion.acknowledged && (
-                  <div className="flex space-x-1">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleAcknowledge(suggestion.id)}
-                      className="h-8 w-8 p-0 hover:bg-white/5 rounded-full"
-                      disabled={acknowledgeSuggestionMutation.isPending}
-                      data-testid={`button-acknowledge-${index}`}
-                    >
-                      <CheckCircle className="h-4 w-4 text-emerald-400" />
-                    </Button>
-                  </div>
-                )}
+                <span className="text-[9px] font-black uppercase tracking-[0.1em] opacity-80">
+                  {suggestion.priority === 'high' ? 'CRITICAL VECTOR' : 'TACTICAL ADVISORY'}
+                </span>
               </div>
-              
-              <div className="text-sm font-bold leading-relaxed mb-3" data-testid={`suggestion-content-${index}`}>
-                {suggestion.content}
-              </div>
-              
-              <div className="text-[10px] font-black uppercase tracking-widest opacity-50">
-                Logged: {new Date(suggestion.createdAt).toLocaleDateString()}
-              </div>
+              {!suggestion.acknowledged && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => acknowledgeSuggestionMutation.mutate(suggestion.id)}
+                  className="h-6 w-6 p-0 hover:bg-white/10 transition-colors"
+                  disabled={acknowledgeSuggestionMutation.isPending}
+                >
+                  <CheckCircle className="h-3.5 w-3.5 text-emerald-400 opacity-60 hover:opacity-100" />
+                </Button>
+              )}
             </div>
-          ))}
-
-          {displaySuggestions.length === 0 && (
-            <div className="text-center py-12 bg-white/[0.02] border border-dashed border-white/10 rounded-3xl">
-              <Bot className="h-16 w-16 mx-auto mb-4 text-gray-700" />
-              <p className="font-bold text-white uppercase tracking-widest text-xs">Awaiting Analysis</p>
-              <p className="text-[10px] text-gray-500 mt-2">Neural patterns insufficient for diagnostic output.</p>
+            <div className="text-[11px] font-black leading-relaxed italic uppercase tracking-tight">
+              {suggestion.content}
             </div>
-          )}
-        </div>
+          </div>
+        ))}
 
-        <Button 
-          className="w-full mt-8 bg-blue-600 hover:bg-blue-500 text-white rounded-xl h-14 font-black tracking-widest text-xs shadow-lg shadow-blue-500/10"
-          data-testid="button-view-posture-guide"
-        >
-          OPEN POSTURE REPOSITORY
-        </Button>
+        {displaySuggestions.length === 0 && (
+          <div className="text-center py-10 bg-gray-50/50 dark:bg-white/[0.02] border border-dashed border-gray-200 dark:border-white/10 rounded-[2rem]">
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 font-extrabold uppercase tracking-[0.2em]">SYNCING ANALYTICS...</p>
+            <p className="text-[9px] text-gray-500 dark:text-gray-600 mt-2">Awaiting neural link stabilization.</p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -1,21 +1,12 @@
 import { useAuth } from "@/hooks/useAuth";
-import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
 import Header from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, Target, AlertCircle, Download, Calendar, BarChart3 } from "lucide-react";
-
-interface ErrorData {
-  id: string;
-  character: string;
-  frequency: number;
-  errorType: string;
-  lastOccurred: string;
-}
+import { TrendingUp, Target, AlertCircle, Download, BarChart3, Clock, Zap, Activity } from "lucide-react";
+import { motion } from "framer-motion";
 
 interface DailyStats {
   todayWpm: number;
@@ -24,338 +15,216 @@ interface DailyStats {
   improvementToday: number;
 }
 
+interface ErrorData {
+  id: string;
+  pattern: string;
+  frequency: number;
+  errorType: string;
+}
+
 export default function StudentAnalytics() {
   const { user, isAuthenticated } = useAuth();
-  const { toast } = useToast();
 
-  // Fetch error analytics
-  const { data: errorData, isLoading: errorLoading } = useQuery<ErrorData[]>({
-    queryKey: ["/api/analytics/errors"],
-    retry: false,
-  });
-
-  // Fetch daily stats
   const { data: dailyStats, isLoading: dailyLoading } = useQuery<DailyStats>({
     queryKey: ["/api/analytics/student/daily"],
     retry: false,
   });
 
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h2>
-          <p className="text-gray-600">You need to be logged in to access this page.</p>
-        </div>
-      </div>
-    );
-  }
+  const { data: errorData, isLoading: errorLoading } = useQuery<ErrorData[]>({
+    queryKey: ["/api/analytics/errors"],
+    retry: false,
+  });
 
-  const getErrorTypeColor = (errorType: string) => {
-    switch (errorType) {
-      case "wrong_character":
-        return "bg-red-100 text-red-800";
-      case "missed_character":
-        return "bg-orange-100 text-orange-800";
-      case "extra_character":
-        return "bg-yellow-100 text-yellow-800";
-      case "character_swap":
-        return "bg-purple-100 text-purple-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  const formatErrorType = (errorType: string) => {
-    switch (errorType) {
-      case "wrong_character":
-        return "Wrong Char";
-      case "missed_character":
-        return "Missed";
-      case "extra_character":
-        return "Extra";
-      case "character_swap":
-        return "Swapped";
-      default:
-        return "Other";
-    }
-  };
-
-  const exportData = () => {
-    toast({
-      title: "Export Started",
-      description: "Your analytics data is being prepared for download.",
-    });
-    // Would implement actual export functionality
-  };
-
-  // Sort error data by frequency
-  const sortedErrors = errorData?.sort((a, b) => b.frequency - a.frequency) || [];
-  const topErrors = sortedErrors.slice(0, 10);
-
-  // Generate some demo keystroke timing data
-  const generateKeystrokeData = () => {
-    const commonKeys = ['a', 'e', 'i', 'o', 'u', 't', 'n', 's', 'r', 'h'];
-    return commonKeys.map(key => ({
-      key: key.toUpperCase(),
-      avgTime: Math.floor(Math.random() * 200) + 100, // 100-300ms
-      consistency: Math.floor(Math.random() * 30) + 70, // 70-100%
-      accuracy: Math.floor(Math.random() * 20) + 80, // 80-100%
-    }));
-  };
-
-  const keystrokeData = generateKeystrokeData();
+  if (!isAuthenticated) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0f172a] text-slate-900 dark:text-white selection:bg-blue-500/30">
       <Header />
       
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-2">Detailed Analytics</h2>
-              <p className="text-gray-600">Deep dive into your typing patterns and areas for improvement.</p>
-            </div>
-            <Button onClick={exportData} className="mt-4 md:mt-0" data-testid="button-export">
-              <Download className="h-4 w-4 mr-2" />
-              Export Data
-            </Button>
+      <div className="max-w-[1400px] mx-auto px-6 py-12">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-12">
+          <div className="space-y-2">
+            <h1 className="text-5xl font-black tracking-tighter italic uppercase text-slate-900 dark:text-white">
+              DETAILED <span className="text-blue-500">ANALYTICS</span>
+            </h1>
+            <p className="text-gray-400 font-medium tracking-wide font-mono text-xs uppercase tracking-[0.2em]">
+              Real-time Neural Pattern Analysis & Daily Convergence
+            </p>
           </div>
+          <Button 
+            onClick={() => {
+              if (!dailyStats) return;
+              const csvContent = "data:text/csv;charset=utf-8," 
+                + "Metric,Value\n"
+                + `Today's Best WPM,${Number(dailyStats.todayWpm || 0).toFixed(2)}\n`
+                + `Today's Accuracy,${Number(dailyStats.todayAccuracy || 100).toFixed(2)}%\n`
+                + `Sessions Today,${dailyStats.sessionsToday}\n`
+                + `Daily Improvement,${Number(dailyStats.improvementToday || 0).toFixed(2)} WPM`;
+              const encodedUri = encodeURI(csvContent);
+              const link = document.createElement("a");
+              link.setAttribute("href", encodedUri);
+              link.setAttribute("download", `kodex_tactical_data_${new Date().toISOString().split('T')[0]}.csv`);
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }}
+            className="h-12 bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-6 text-xs font-black uppercase tracking-widest gap-2 shadow-lg shadow-blue-500/20"
+          >
+            <Download className="h-4 w-4" />
+            Export Tactical Data
+          </Button>
         </div>
 
-        {/* Today's Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card data-testid="card-today-wpm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                Today's Best WPM
-              </CardTitle>
-              <TrendingUp className="h-4 w-4 text-gray-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">
-                {dailyLoading ? "..." : dailyStats?.todayWpm || 0}
+        {/* Daily Metrics Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+          {[
+            { label: "Today's Best WPM", value: Number(dailyStats?.todayWpm || 0).toFixed(2), icon: TrendingUp, color: "blue", suffix: "" },
+            { label: "Today's Accuracy", value: `${Number(dailyStats?.todayAccuracy || 0).toFixed(2)}%`, icon: Target, color: "emerald", suffix: "" },
+            { label: "Sessions Today", value: dailyStats?.sessionsToday || 0, icon: Activity, color: "purple", suffix: "" },
+            { label: "Daily Improvement", value: `${(dailyStats?.improvementToday || 0) > 0 ? '+' : ''}${Number(dailyStats?.improvementToday || 0).toFixed(2)}`, icon: Zap, color: "amber", subtitle: "WPM change from yesterday" }
+          ].map((item, idx) => (
+            <motion.div
+              key={idx}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: idx * 0.1 }}
+              className="bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-3xl p-6 backdrop-blur-md shadow-sm dark:shadow-none"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{item.label}</span>
+                <item.icon className={`h-4 w-4 text-${item.color}-500/50`} />
               </div>
-            </CardContent>
-          </Card>
-
-          <Card data-testid="card-today-accuracy">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                Today's Accuracy
-              </CardTitle>
-              <Target className="h-4 w-4 text-gray-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {dailyLoading ? "..." : `${dailyStats?.todayAccuracy || 0}%`}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card data-testid="card-sessions-today">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                Sessions Today
-              </CardTitle>
-              <BarChart3 className="h-4 w-4 text-gray-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-600">
-                {dailyLoading ? "..." : dailyStats?.sessionsToday || 0}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card data-testid="card-improvement">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                Daily Improvement
-              </CardTitle>
-              <Calendar className="h-4 w-4 text-gray-400" />
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${
-                (dailyStats?.improvementToday || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {dailyLoading ? "..." : `${(dailyStats?.improvementToday || 0) > 0 ? '+' : ''}${dailyStats?.improvementToday || 0}`}
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                WPM change from yesterday
-              </p>
-            </CardContent>
-          </Card>
+              <div className="text-4xl font-black text-slate-800 dark:text-white">{item.value}</div>
+              {item.subtitle && (
+                <p className="text-[9px] text-gray-600 font-medium mt-2 uppercase tracking-tight">{item.subtitle}</p>
+              )}
+            </motion.div>
+          ))}
         </div>
 
-        {/* Detailed Analytics Tabs */}
-        <Tabs defaultValue="errors" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="errors" data-testid="tab-errors">Error Analysis</TabsTrigger>
-            <TabsTrigger value="keystrokes" data-testid="tab-keystrokes">Keystroke Timing</TabsTrigger>
-            <TabsTrigger value="patterns" data-testid="tab-patterns">Patterns</TabsTrigger>
+        {/* Tabs System */}
+        <Tabs defaultValue="errors" className="space-y-8">
+          <TabsList className="bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 p-1 rounded-2xl w-full max-w-md mx-auto grid grid-cols-2 h-14">
+            <TabsTrigger value="errors" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white text-[10px] font-black uppercase tracking-widest transition-all">
+              Error Analysis
+            </TabsTrigger>
+            <TabsTrigger value="patterns" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white text-[10px] font-black uppercase tracking-widest transition-all">
+              Typing Patterns
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="errors" className="space-y-6">
-            <Card data-testid="card-error-analysis">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <AlertCircle className="h-5 w-5 mr-2 text-red-500" />
-                  Most Common Errors
-                </CardTitle>
+          <TabsContent value="errors">
+            <Card className="bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-[2.5rem] overflow-hidden shadow-sm dark:shadow-none">
+              <CardHeader className="p-8 pb-4 border-b border-gray-50 dark:border-white/5">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="h-5 w-5 text-red-500" />
+                  <CardTitle className="text-xl font-black italic uppercase tracking-tighter">Common Mistakes Analysis</CardTitle>
+                </div>
+                <p className="text-xs text-gray-500 font-medium">Errors detected from your recent typing sessions</p>
               </CardHeader>
-              <CardContent>
-                {errorLoading ? (
-                  <div className="space-y-4">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <div key={i} className="animate-pulse flex items-center space-x-4">
-                        <div className="h-4 bg-gray-200 rounded w-8"></div>
-                        <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-                        <div className="h-4 bg-gray-200 rounded w-1/6"></div>
-                        <div className="h-4 bg-gray-200 rounded w-1/3"></div>
-                      </div>
-                    ))}
-                  </div>
-                ) : topErrors.length > 0 ? (
-                  <div className="space-y-3">
-                    {topErrors.map((error, index) => (
-                      <div
+              <CardContent className="p-8">
+                {errorData && errorData.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {errorData.map((error, idx) => (
+                      <motion.div
                         key={error.id}
-                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                        data-testid={`error-${index}`}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: idx * 0.05 }}
+                        className="p-6 bg-gray-50 dark:bg-white/[0.02] border border-gray-100 dark:border-white/10 rounded-3xl"
                       >
-                        <div className="flex items-center space-x-4">
-                          <div className="text-sm font-mono bg-gray-200 px-2 py-1 rounded">
-                            '{error.character}'
-                          </div>
-                          <Badge className={getErrorTypeColor(error.errorType)}>
-                            {formatErrorType(error.errorType)}
+                        <div className="flex items-center justify-between mb-4">
+                          <Badge className="bg-red-500/10 text-red-500 border-red-500/20 text-[9px] font-black uppercase tracking-widest">
+                            {error.errorType}
                           </Badge>
+                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                            {error.frequency} Occurrences
+                          </span>
                         </div>
-                        <div className="text-right">
-                          <div className="text-lg font-semibold text-red-600">
-                            {error.frequency}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            errors
-                          </div>
+                        <div className="text-2xl font-black text-slate-800 dark:text-white mb-2 font-mono tracking-tighter">
+                          {error.pattern}
                         </div>
-                      </div>
+                        <div className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">
+                          Neural Correction Required
+                        </div>
+                      </motion.div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <AlertCircle className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                    <p>No error data available yet.</p>
-                    <p className="text-sm mt-1">Start typing to see your error patterns!</p>
+                  <div className="p-20 text-center">
+                    <div className="max-w-xs mx-auto space-y-4">
+                       <div className="h-20 w-20 rounded-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 flex items-center justify-center mx-auto mb-6">
+                          <AlertCircle className="h-8 w-8 text-gray-300 dark:text-gray-700" />
+                       </div>
+                       <p className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-widest">No error patterns detected yet</p>
+                       <p className="text-xs text-gray-500 font-medium">Complete more typing sessions to see your common mistakes and patterns.</p>
+                    </div>
                   </div>
                 )}
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="keystrokes" className="space-y-6">
-            <Card data-testid="card-keystroke-timing">
-              <CardHeader>
-                <CardTitle>Individual Key Performance</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {keystrokeData.map((keyData, index) => (
-                    <div
-                      key={keyData.key}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                      data-testid={`keystroke-${keyData.key}`}
-                    >
-                      <div className="flex items-center space-x-4">
-                        <div className="text-lg font-mono bg-white px-3 py-2 rounded border">
-                          {keyData.key}
-                        </div>
-                        <div>
-                          <div className="text-sm font-medium">Avg: {keyData.avgTime}ms</div>
-                          <div className="text-xs text-gray-500">Response time</div>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-4">
-                        <div className="text-center">
-                          <div className="text-sm font-semibold text-blue-600">
-                            {keyData.consistency}%
-                          </div>
-                          <div className="text-xs text-gray-500">Consistency</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-sm font-semibold text-green-600">
-                            {keyData.accuracy}%
-                          </div>
-                          <div className="text-xs text-gray-500">Accuracy</div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="patterns" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card data-testid="card-typing-patterns">
-                <CardHeader>
-                  <CardTitle>Typing Patterns</CardTitle>
+          <TabsContent value="patterns">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <Card className="bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-[2.5rem] overflow-hidden shadow-sm dark:shadow-none">
+                <CardHeader className="p-8 pb-4 border-b border-gray-50 dark:border-white/5">
+                  <CardTitle className="text-xl font-black italic uppercase tracking-tighter">Daily Typing Behavior</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Peak Performance Time</span>
-                      <span className="font-medium">10:00 AM - 12:00 PM</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Most Active Day</span>
-                      <span className="font-medium">Tuesday</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Average Session Length</span>
-                      <span className="font-medium">8.5 minutes</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Preferred Text Type</span>
-                      <span className="font-medium">Technical</span>
-                    </div>
+                <CardContent className="p-8">
+                  <div className="space-y-6">
+                    {[
+                      { label: "Today's WPM", value: `${Number(dailyStats?.todayWpm || 0).toFixed(2)} WPM` },
+                      { label: "Today's Accuracy", value: `${Number(dailyStats?.todayAccuracy || 0).toFixed(2)}%` },
+                      { label: "Sessions Today", value: dailyStats?.sessionsToday || 0 },
+                      { label: "Daily Improvement", value: `${Number(dailyStats?.improvementToday || 0).toFixed(2)} WPM` }
+                    ].map((row, i) => (
+                      <div key={i} className="flex items-center justify-between py-4 border-b border-white/5 last:border-0 border-dashed">
+                        <span className="text-xs font-black text-slate-500 dark:text-gray-500 uppercase tracking-widest">{row.label}</span>
+                        <span className="text-sm font-black text-slate-800 dark:text-white">{row.value}</span>
+                      </div>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
 
-              <Card data-testid="card-recommendations">
-                <CardHeader>
-                  <CardTitle>Recommendations</CardTitle>
+              <Card className="bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-[2.5rem] overflow-hidden shadow-sm dark:shadow-none">
+                <CardHeader className="p-8 pb-4 border-b border-gray-50 dark:border-white/5">
+                  <CardTitle className="flex items-center gap-3 text-xl font-black italic uppercase tracking-tighter">
+                    <Zap className="h-5 w-5 text-amber-500" />
+                    Most Common Errors
+                  </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="p-3 bg-blue-50 rounded-lg">
-                      <div className="text-sm font-medium text-blue-800">
-                        Focus on Accuracy
-                      </div>
-                      <div className="text-xs text-blue-600 mt-1">
-                        Practice with slower, more deliberate typing to reduce error rate
-                      </div>
+                <CardContent className="p-8">
+                  {errorData && errorData.length > 0 ? (
+                    <div className="space-y-4">
+                      {errorData.slice(0, 5).map((error, idx) => (
+                        <div key={error.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-white/[0.02] border border-gray-100 dark:border-white/5 rounded-2xl">
+                          <div className="flex items-center gap-4">
+                            <div className="h-10 w-10 flex items-center justify-center bg-red-500/10 text-red-500 rounded-xl font-mono font-black">
+                              {error.pattern.split(' → ')[0]}
+                            </div>
+                            <div>
+                              <div className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-tighter italic">{error.pattern}</div>
+                              <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{error.errorType} pattern</div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-lg font-black text-blue-500">{error.frequency}</div>
+                            <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none">Hits</div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                    <div className="p-3 bg-green-50 rounded-lg">
-                      <div className="text-sm font-medium text-green-800">
-                        Strong Progress
+                  ) : (
+                    <div className="p-20 text-center">
+                      <div className="h-16 w-16 bg-white/[0.02] border border-white/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                         <AlertCircle className="h-6 w-6 text-gray-700" />
                       </div>
-                      <div className="text-xs text-green-600 mt-1">
-                        Your speed has improved 15% this week - keep it up!
-                      </div>
+                      <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">No tactical error data logged today.</p>
                     </div>
-                    <div className="p-3 bg-yellow-50 rounded-lg">
-                      <div className="text-sm font-medium text-yellow-800">
-                        Practice Numbers
-                      </div>
-                      <div className="text-xs text-yellow-600 mt-1">
-                        Number row typing could use more practice
-                      </div>
-                    </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             </div>

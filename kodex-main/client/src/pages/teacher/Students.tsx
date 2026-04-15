@@ -23,6 +23,7 @@ export default function Students() {
   const { data: students, isLoading } = useQuery<Student[]>({
     queryKey: ["/api/teacher/students"],
     retry: false,
+    refetchInterval: 60000,
   });
 
   if (!isAuthenticated || user?.role !== "teacher") return null;
@@ -39,7 +40,7 @@ export default function Students() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-white">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0f172a] text-slate-900 dark:text-white transition-colors">
       <Header />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -48,18 +49,18 @@ export default function Students() {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
           >
-            <h2 className="text-4xl font-extrabold tracking-tight mb-2 flex items-center">
-              <Users className="mr-4 h-8 w-8 text-blue-500" />
+            <h2 className="text-4xl font-extrabold tracking-tight mb-2 flex items-center text-slate-900 dark:text-white">
+              <Users className="mr-4 h-8 w-8 text-blue-600 dark:text-blue-500" />
               Student Directory
             </h2>
-            <p className="text-gray-400">Total of {students?.length || 0} registered assets ready for training.</p>
+            <p className="text-slate-500 dark:text-gray-400">Total of {students?.length || 0} registered assets ready for training.</p>
           </motion.div>
 
           <div className="relative group flex-1 max-w-md">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 group-focus-within:text-blue-500 transition-colors" />
             <Input 
               placeholder="Search by name, email or username..." 
-              className="pl-11 bg-white/5 border-white/10 h-14 rounded-2xl focus:ring-blue-500"
+              className="pl-11 bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 h-14 rounded-2xl focus:ring-blue-500 text-slate-900 dark:text-white"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -79,7 +80,7 @@ export default function Students() {
                   layout
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="group bg-white/5 border border-white/10 rounded-[2rem] p-8 hover:bg-white/[0.07] transition-all hover:border-blue-500/30 flex flex-col justify-between"
+                  className="group bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-[2rem] p-8 hover:bg-gray-50 dark:hover:bg-white/[0.07] transition-all hover:border-blue-500/30 flex flex-col justify-between shadow-sm dark:shadow-none"
                 >
                   <div className="flex items-center space-x-4 mb-6">
                     <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center border border-white/5 group-hover:scale-110 transition-transform">
@@ -88,19 +89,19 @@ export default function Students() {
                       </span>
                     </div>
                     <div>
-                      <h4 className="text-xl font-bold text-white uppercase tracking-tight">{student.firstName} {student.lastName}</h4>
-                      <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-0.5">@{student.username}</p>
+                      <h4 className="text-xl font-bold text-slate-900 dark:text-white uppercase tracking-tight">{student.firstName} {student.lastName}</h4>
+                      <p className="text-xs text-slate-400 dark:text-gray-500 font-bold uppercase tracking-widest mt-0.5">@{student.username}</p>
                     </div>
                   </div>
 
                   <div className="space-y-4 mb-8">
-                     <div className="flex items-center text-sm text-gray-400">
-                        <Mail className="h-4 w-4 mr-2 text-gray-600" />
+                     <div className="flex items-center text-sm text-slate-500 dark:text-gray-400">
+                        <Mail className="h-4 w-4 mr-2 text-slate-400" />
                         <span className="truncate">{student.email}</span>
                      </div>
-                     <div className="h-[1px] w-full bg-white/5"></div>
+                     <div className="h-[1px] w-full bg-gray-100 dark:bg-white/5"></div>
                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black text-gray-600 uppercase tracking-[0.2em]">Signal Status</span>
+                        <span className="text-[10px] font-black text-slate-300 dark:text-gray-600 uppercase tracking-[0.2em]">Signal Status</span>
                         <div className="flex items-center text-emerald-400 text-[10px] font-black">
                            <Signal className="h-3 w-3 mr-1" /> ONLINE
                         </div>
@@ -110,7 +111,7 @@ export default function Students() {
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
-                      className="flex-1 bg-white/5 border-white/10 rounded-xl h-12 text-xs font-black uppercase tracking-widest hover:bg-white/10"
+                      className="flex-1 bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 rounded-xl h-12 text-xs font-black uppercase tracking-widest text-slate-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
                       onClick={() => handleViewProgress(student.id)}
                     >
                       <Eye className="h-4 w-4 mr-2" />
@@ -129,10 +130,10 @@ export default function Students() {
             </AnimatePresence>
           </div>
         ) : (
-          <div className="text-center py-24 bg-white/5 rounded-[3rem] border border-dashed border-white/10">
-            <Users className="h-20 w-20 text-gray-700 mx-auto mb-6" />
-            <h3 className="text-2xl font-bold text-white mb-2">No Match Detected</h3>
-            <p className="text-gray-500 max-w-sm mx-auto">
+          <div className="text-center py-24 bg-white dark:bg-white/5 rounded-[3rem] border border-dashed border-gray-200 dark:border-white/10 shadow-sm dark:shadow-none">
+            <Users className="h-20 w-20 text-slate-300 dark:text-gray-700 mx-auto mb-6" />
+            <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">No Match Detected</h3>
+            <p className="text-slate-500 dark:text-gray-500 max-w-sm mx-auto">
               We couldn't find any students matching your current search parameters.
             </p>
           </div>

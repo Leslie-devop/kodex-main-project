@@ -1,15 +1,31 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
-import * as schema from "@shared/schema";
+import { neon } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
+import * as schema from "../shared/schema";
 
-neonConfig.webSocketConstructor = ws;
+// Using the Neon HTTP driver for maximum stability in Vercel's serverless environment
+let _db: any = null;
 
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
-  );
-}
+export const db = new Proxy({}, {
+  get: (target, prop) => {
+    if (!_db) {
+      const dbUrl = process.env.DATABASE_URL;
+      if (!dbUrl && process.env.USE_MEMORY_STORAGE !== "true") {
+        console.error("CRITICAL: DATABASE_URL is missing in production environment!");
+        return null; 
+      }
+      
+      try {
+        const sql = neon(dbUrl!);
+        _db = drizzle(sql, { schema });
+        console.log("Database initialized successfully via HTTP");
+      } catch (e) {
+        console.error("FAILED to initialize database:", e);
+        return null;
+      }
+    }
+    return _db ? (_db as any)[prop] : undefined;
+  }
+}) as any;
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-export const db = drizzle({ client: pool, schema });
+// Export an empty pool or a dummy to satisfy any direct imports if they exist
+export const pool = null;

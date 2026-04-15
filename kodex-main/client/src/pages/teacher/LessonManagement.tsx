@@ -1,21 +1,18 @@
-
 import { useAuth } from "@/hooks/useAuth";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, Plus, Edit, Trash2, Clock } from "lucide-react";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { BookOpen, Plus, Edit2, Trash2, Clock, Search, FileText } from "lucide-react";
 import { useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
+import { motion } from "framer-motion";
 
 interface Lesson {
   id: string;
@@ -25,6 +22,8 @@ interface Lesson {
   difficulty: string;
   estimatedTime: number;
   createdAt: string;
+  isStandalone?: boolean;
+  classroomId?: string;
 }
 
 export default function LessonManagement() {
@@ -32,20 +31,22 @@ export default function LessonManagement() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [deletingLesson, setDeletingLesson] = useState<Lesson | null>(null);
-  const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [lessonForm, setLessonForm] = useState({
-    title: "",
-    description: "",
-    content: "",
-    difficulty: "beginner",
-    estimatedTime: 10
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [difficultyFilter, setDifficultyFilter] = useState("all");
+  const [classroomFilter, setClassroomFilter] = useState("all");
+  const [sortOrder, setSortOrder] = useState("newest");
+
+  const { data: classrooms } = useQuery<any[]>({
+    queryKey: ["/api/classrooms"],
+    retry: false,
+    refetchInterval: 60000,
   });
 
   const { data: lessons, isLoading } = useQuery<Lesson[]>({
     queryKey: ["/api/lessons"],
     retry: false,
+    refetchInterval: 60000,
   });
 
   const deleteLessonMutation = useMutation({
@@ -55,330 +56,226 @@ export default function LessonManagement() {
     },
     onSuccess: () => {
       toast({
-        title: "Success",
-        description: "Lesson deleted successfully!",
+        title: "Lesson Deleted",
+        description: "The lesson has been successfully removed.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/lessons"] });
     },
     onError: (error: Error) => {
       toast({
-        title: "Error",
+        title: "Deletion Failed",
         description: error.message,
         variant: "destructive",
       });
     },
   });
 
-  const updateLessonMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: typeof lessonForm }) => {
-      const response = await apiRequest("PUT", `/api/lessons/${id}`, data);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/lessons"] });
-      setEditingLesson(null);
-      setIsEditOpen(false);
-      resetForm();
-      toast({
-        title: "Success",
-        description: "Lesson updated successfully",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update lesson",
-        variant: "destructive",
-      });
-    },
-  });
+  if (!isAuthenticated || user?.role !== "teacher") return null;
 
-  const resetForm = () => {
-    setLessonForm({
-      title: "",
-      description: "",
-      content: "",
-      difficulty: "beginner",
-      estimatedTime: 10
+  const filteredLessons = lessons?.filter(l => l.isStandalone !== true)
+    .filter(l => {
+      const matchesSearch = 
+        (l.title?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+        (l.description?.toLowerCase() || "").includes(searchQuery.toLowerCase());
+      
+      const matchesDifficulty = difficultyFilter === "all" || l.difficulty === difficultyFilter;
+      const matchesClassroom = classroomFilter === "all" || l.classroomId === classroomFilter || (classroomFilter === "unassigned" && !l.classroomId);
+
+      return matchesSearch && matchesDifficulty && matchesClassroom;
+    }).sort((a, b) => {
+      if (sortOrder === "a-z") {
+        return a.title.localeCompare(b.title);
+      } else if (sortOrder === "z-a") {
+        return b.title.localeCompare(a.title);
+      } else {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
     });
-  };
-
-  const openEditDialog = (lesson: Lesson) => {
-    setEditingLesson(lesson);
-    setLessonForm({
-      title: lesson.title,
-      description: lesson.description || "",
-      content: lesson.content,
-      difficulty: lesson.difficulty,
-      estimatedTime: lesson.estimatedTime || 10
-    });
-    setIsEditOpen(true);
-  };
-
-  const handleSubmit = () => {
-    if (editingLesson) {
-      updateLessonMutation.mutate({ id: editingLesson.id, data: lessonForm });
-    }
-  };
-
-  if (!isAuthenticated || user?.role !== "teacher") {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h2>
-          <p className="text-gray-600">You don't have permission to access this page.</p>
-        </div>
-      </div>
-    );
-  }
-
-  const handleDelete = (lesson: Lesson) => {
-    setDeletingLesson(lesson);
-  };
-
-  const handleAssign = (lessonId: string) => {
-    navigate(`/teacher/lessons/${lessonId}/assign`);
-  };
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
-      case "beginner": return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
-      case "intermediate": return "bg-amber-500/20 text-amber-400 border-amber-500/30";
-      case "advanced": return "bg-red-500/20 text-red-400 border-red-500/30";
-      default: return "bg-white/5 text-gray-400 border-white/10";
+      case "beginner": return "bg-emerald-50 text-emerald-600 border-emerald-100";
+      case "intermediate": return "bg-amber-50 text-amber-600 border-amber-100";
+      case "advanced": return "bg-red-50 text-red-600 border-red-100";
+      default: return "bg-slate-50 text-slate-600 border-slate-100";
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-white selection:bg-blue-500/30">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0f172a] text-slate-900 dark:text-white selection:bg-blue-500/20 transition-colors">
       <Header />
       
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="mb-12 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div>
-            <h2 className="text-4xl font-extrabold tracking-tight mb-2">Lesson Repository</h2>
-            <p className="text-gray-400 font-medium font-mono text-sm uppercase tracking-widest">Protocol Management: Lesson Architect Module</p>
+      <main className="max-w-[1400px] mx-auto px-6 lg:px-10 py-12">
+        <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-8">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <div className="flex items-center gap-4 mb-4">
+                <div className="p-3 bg-blue-600 rounded-2xl shadow-lg shadow-blue-600/20 text-white">
+                    <BookOpen className="h-8 w-8" />
+                </div>
+                <h2 className="text-4xl font-black tracking-tight text-slate-900 dark:text-white">
+                  Lesson Repository
+                </h2>
+            </div>
+            <p className="text-slate-500 dark:text-gray-400 font-semibold text-lg max-w-2xl">Manage your lesson library and design new typing protocols.</p>
+          </motion.div>
+
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-4">
+              <div className="relative group flex-1 md:flex-none">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
+                <Input 
+                  placeholder="Filter lessons..." 
+                  className="pl-12 w-full md:w-80 h-14 bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white rounded-2xl focus:ring-blue-500/20 font-bold shadow-sm"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              
+              <Link href="/teacher/lessons/create">
+                <Button className="bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl px-8 h-14 shadow-xl shadow-blue-600/20 active:scale-95 transition-all">
+                  <Plus className="mr-3 h-6 w-6" />
+                  Initialize New Lesson
+                </Button>
+              </Link>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-end gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Difficulty</Label>
+                <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
+                  <SelectTrigger className="w-40 h-11 bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl font-bold text-xs text-slate-900 dark:text-white">
+                    <SelectValue placeholder="All Levels" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 dark:bg-slate-800">
+                    <SelectItem value="all">All Levels</SelectItem>
+                    <SelectItem value="beginner">Beginner</SelectItem>
+                    <SelectItem value="intermediate">Intermediate</SelectItem>
+                    <SelectItem value="advanced">Advanced</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Classroom</Label>
+                <Select value={classroomFilter} onValueChange={setClassroomFilter}>
+                  <SelectTrigger className="w-40 h-11 bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl font-bold text-xs text-slate-900 dark:text-white">
+                    <SelectValue placeholder="All Classrooms" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 dark:bg-slate-800 max-h-60">
+                    <SelectItem value="all">All Classrooms</SelectItem>
+                    <SelectItem value="unassigned">No Classroom</SelectItem>
+                    {classrooms?.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Sort</Label>
+                <Select value={sortOrder} onValueChange={setSortOrder}>
+                  <SelectTrigger className="w-40 h-11 bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl font-bold text-xs text-slate-900 dark:text-white">
+                    <SelectValue placeholder="Sort Order" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 dark:bg-slate-800">
+                    <SelectItem value="newest">Newest First</SelectItem>
+                    <SelectItem value="a-z">Name (A-Z)</SelectItem>
+                    <SelectItem value="z-a">Name (Z-A)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
-          <Button onClick={() => navigate("/teacher/lessons/create")} className="bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-8 h-12 font-black uppercase tracking-widest text-xs shadow-lg shadow-blue-500/10">
-            <Plus className="h-4 w-4 mr-2" />
-            Initialize New Lesson
-          </Button>
         </div>
 
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[...Array(6)].map((_, i) => (
-              <Card key={i} className="bg-white/5 border-white/10 backdrop-blur-xl rounded-[2.5rem] animate-pulse">
-                <CardHeader>
-                  <div className="h-4 bg-white/10 rounded w-3/4"></div>
-                  <div className="h-3 bg-white/10 rounded w-1/2"></div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="h-3 bg-white/10 rounded"></div>
-                    <div className="h-3 bg-white/10 rounded w-2/3"></div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+             {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="h-64 rounded-[2rem] bg-white border border-slate-100 animate-pulse" />)}
           </div>
-        ) : lessons && lessons.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {lessons.map((lesson) => (
-              <Card key={lesson.id} className="bg-white/5 border-white/10 backdrop-blur-xl rounded-[2.5rem] overflow-hidden group hover:border-blue-500/30 transition-all duration-300 shadow-2xl">
-                <CardHeader className="p-8 pb-4 border-b border-white/5">
-                  <div className="flex justify-between items-start mb-2">
-                    <CardTitle className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors">{lesson.title}</CardTitle>
-                    <Badge className={`${getDifficultyColor(lesson.difficulty)} text-[9px] font-black uppercase px-2 py-0.5 rounded shadow-sm`}>
-                      {lesson.difficulty.toUpperCase()}
-                    </Badge>
-                  </div>
-                  {lesson.description && (
-                    <p className="text-xs text-gray-500 font-medium line-clamp-2 leading-relaxed">{lesson.description}</p>
-                  )}
-                </CardHeader>
-                <CardContent className="p-8">
-                  <div className="space-y-6">
-                    <div className="flex items-center text-[10px] font-black uppercase tracking-widest text-gray-500 group-hover:text-blue-400 transition-colors">
-                      <Clock className="h-3 w-3 mr-2" />
-                      SYNCHRONIZATION DURATION: {lesson.estimatedTime} Min
+        ) : filteredLessons && filteredLessons.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredLessons.map((lesson, index) => (
+              <motion.div
+                key={lesson.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+              >
+                <Card className="group border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:border-blue-600/40 rounded-[2rem] transition-all hover:shadow-2xl hover:shadow-blue-600/5 overflow-hidden h-full flex flex-col shadow-sm dark:shadow-none">
+                  <CardHeader className="p-8 pb-4">
+                    <div className="flex justify-between items-start mb-2">
+                        <CardTitle className="text-2xl font-black text-slate-900 group-hover:text-blue-600 transition-colors tracking-tight line-clamp-1">{lesson.title}</CardTitle>
+                        <Badge className={`${getDifficultyColor(lesson.difficulty)} font-black text-[10px] uppercase truncate`}>
+                          {lesson.difficulty}
+                        </Badge>
+                    </div>
+                    {lesson.description && (
+                      <p className="text-sm text-slate-500 dark:text-gray-400 font-bold line-clamp-2 mt-2">{lesson.description}</p>
+                    )}
+                  </CardHeader>
+                  <CardContent className="p-8 pt-4 flex-1 flex flex-col justify-end">
+                    <div className="bg-gray-50 dark:bg-slate-900/40 rounded-xl p-4 mb-6 border border-slate-100 dark:border-white/5">
+                        <div className="flex items-center text-sm font-bold text-slate-500 dark:text-gray-400 uppercase tracking-widest gap-2">
+                            <Clock className="w-4 h-4 text-blue-500" />
+                            {lesson.estimatedTime ? Math.round(lesson.estimatedTime / 60) : 0} Minutes
+                        </div>
                     </div>
                     
-                    <div className="space-y-3">
-                      <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Protocol Preview Source:</p>
-                      <div className="font-mono text-[10px] bg-black/40 text-blue-400/80 p-4 rounded-2xl border border-white/5 line-clamp-3 leading-relaxed">
-                        {lesson.content}
-                      </div>
+                    <div className="flex items-center gap-2">
+                        <Button 
+                          className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-600/20 font-black h-12"
+                          onClick={() => navigate(`/teacher/lessons/${lesson.id}/assign`)}
+                        >
+                          DEPLOY
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          className="h-12 w-12 rounded-xl text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 hover:border-emerald-100 border border-transparent transition-all"
+                          onClick={() => navigate(`/teacher/lessons/${lesson.id}/edit`)}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          className="h-12 w-12 rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-50 hover:border-red-100 border border-transparent transition-all"
+                          onClick={() => {
+                              if (window.confirm("Are you sure you want to delete this lesson?")) {
+                                deleteLessonMutation.mutate(lesson.id);
+                              }
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                     </div>
-
-                    <div className="flex space-x-3 pt-4">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="flex-1 bg-white/5 hover:bg-white/10 text-[10px] font-black uppercase tracking-widest h-11 rounded-xl transition-all"
-                        onClick={() => openEditDialog(lesson)}
-                      >
-                        <Edit className="h-3 w-3 mr-2" />
-                        Modify
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="flex-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-[10px] font-black uppercase tracking-widest h-11 rounded-xl transition-all"
-                        onClick={() => navigate(`/teacher/lessons/${lesson.id}/assign`)}
-                      >
-                        Deploy
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="bg-red-500/10 hover:bg-red-500/20 text-red-400 h-11 w-11 p-0 rounded-xl transition-all"
-                        onClick={() => handleDelete(lesson)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </motion.div>
             ))}
           </div>
         ) : (
-          <Card className="bg-white/5 border border-dashed border-white/10 rounded-[3rem] p-20">
-            <CardContent className="text-center">
-              <BookOpen className="h-20 w-20 mx-auto mb-6 text-gray-700" />
-              <h3 className="text-2xl font-black text-white uppercase tracking-tight mb-2">Repository Empty</h3>
-              <p className="text-gray-500 font-medium mb-8 max-w-sm mx-auto">No typing protocols found in the database. Initialize your first lesson to begin.</p>
-              <Button onClick={() => navigate("/teacher/lessons/create")} className="bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-8 h-12 font-black uppercase tracking-widest text-xs shadow-lg shadow-blue-500/10">
-                <Plus className="h-4 w-4 mr-2" />
-                Initialize First Protocol
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Edit Lesson Dialog */}
-        <Dialog open={isEditOpen} onOpenChange={(open) => {
-          if (!open) {
-            setIsEditOpen(false);
-            setEditingLesson(null);
-            resetForm();
-          }
-        }}>
-          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Edit Lesson</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="title">Title</Label>
-                <Input
-                  id="title"
-                  value={lessonForm.title}
-                  onChange={(e) => setLessonForm({...lessonForm, title: e.target.value})}
-                  placeholder="Lesson title"
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={lessonForm.description}
-                  onChange={(e) => setLessonForm({...lessonForm, description: e.target.value})}
-                  placeholder="Brief description of the lesson"
-                  rows={3}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="difficulty">Difficulty</Label>
-                  <Select value={lessonForm.difficulty} onValueChange={(value) => setLessonForm({...lessonForm, difficulty: value})}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="beginner">Beginner</SelectItem>
-                      <SelectItem value="intermediate">Intermediate</SelectItem>
-                      <SelectItem value="advanced">Advanced</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="estimatedTime">Estimated Time (minutes)</Label>
-                  <Input
-                    id="estimatedTime"
-                    type="number"
-                    value={lessonForm.estimatedTime}
-                    onChange={(e) => setLessonForm({...lessonForm, estimatedTime: Number(e.target.value)})}
-                    min="1"
-                    max="180"
-                  />
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="content">Lesson Content</Label>
-                <Textarea
-                  id="content"
-                  value={lessonForm.content}
-                  onChange={(e) => setLessonForm({...lessonForm, content: e.target.value})}
-                  placeholder="Enter the text content for typing practice..."
-                  rows={10}
-                  required
-                />
-                <p className="text-sm text-gray-500 mt-1">
-                  Characters: {lessonForm.content.length} | Words: {lessonForm.content.split(' ').filter(w => w).length}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Button 
-                  onClick={handleSubmit} 
-                  className="flex-1"
-                  disabled={updateLessonMutation.isPending}
-                >
-                  {updateLessonMutation.isPending ? "Updating..." : "Update Lesson"}
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setIsEditOpen(false);
-                    setEditingLesson(null);
-                    resetForm();
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
+          <div className="text-center py-32 bg-white dark:bg-white/5 rounded-[4rem] border-2 border-dashed border-slate-200 dark:border-white/10 shadow-sm dark:shadow-none transition-all">
+            <div className="bg-gray-50 dark:bg-white/5 w-28 h-28 rounded-full flex items-center justify-center mx-auto mb-8 border border-slate-100 dark:border-white/10 shadow-sm">
+                <BookOpen className="h-12 w-12 text-slate-300 dark:text-gray-700" />
             </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Delete Confirmation Dialog */}
-        <AlertDialog open={!!deletingLesson} onOpenChange={(open) => !open && setDeletingLesson(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete Lesson</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to delete "{deletingLesson?.title}"? This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => {
-                  if (deletingLesson) {
-                    deleteLessonMutation.mutate(deletingLesson.id);
-                    setDeletingLesson(null);
-                  }
-                }}
-                className="bg-red-600 hover:bg-red-700"
-              >
-                Delete Lesson
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
+            <h3 className="text-3xl font-black text-slate-900 dark:text-white mb-4 tracking-tight">No Lessons Available</h3>
+            <p className="text-slate-500 dark:text-gray-500 max-w-sm mx-auto mb-10 font-medium text-lg">
+              Initialize a new lesson to start building your typing curriculum.
+            </p>
+            <Link href="/teacher/lessons/create">
+                <Button 
+                  className="bg-blue-600 hover:bg-blue-500 text-white rounded-[1.5rem] h-16 px-12 font-black text-lg shadow-2xl shadow-blue-600/20 active:scale-95 transition-all"
+                >
+                  INITIALIZE FIRST LESSON
+                </Button>
+            </Link>
+          </div>
+        )}
+      </main>
     </div>
   );
 }
